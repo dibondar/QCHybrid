@@ -100,6 +100,13 @@ class QCHybrid(object):
         # allocate array for saving the classical density
         self.classical_rho = np.empty_like(self.Upsilon1)
 
+        # allocate arrays for the components of the hybrid density matrix
+        self.D11 = np.empty_like(self.Upsilon1)
+        self.D12 = np.empty_like(self.Upsilon1)
+        self.D22 = np.empty_like(self.Upsilon1)
+
+        ########################################################################################
+
         #  FFTW settings to achive good performace. For details see
         # https://hgomersall.github.io/pyFFTW/pyfftw/pyfftw.html#pyfftw.FFTW
         fftw_params = dict(
@@ -425,7 +432,7 @@ class QCHybrid(object):
         :param quantum_observable: 2x2 numpy.array
         :return: float
         """
-        return self.quantum_rho.dot(quantum_observable).trace().real
+        return self.get_quantum_rho().dot(quantum_observable).trace().real
 
     def classical_average(self, classical_observable):
         """
@@ -511,6 +518,40 @@ class QCHybrid(object):
         )
 
         return self.classical_rho.real
+
+    def get_hybrid_D(self):
+        """
+        Calculate the hybrid density matrix and save its components in self.D11, self.D12, and self.D22
+        :return: None
+        """
+        self.get_Upsilon_gradinet()
+
+        ne.evaluate(
+            "2. * abs(Upsilon1) ** 2  + real( "
+            "   X * Upsilon1 * conj(diff_Upsilon1_X) + P * Upsilon1 * conj(diff_Upsilon1_P) + "
+            "   2.j * diff_Upsilon1_X * conj(diff_Upsilon1_P)"
+            ")",
+            local_dict=vars(self),
+            out=self.D11
+        )
+
+        ne.evaluate(
+            "2. * Upsilon1 * conj(Upsilon2) + "
+            "1j * (diff_Upsilon1_X * conj(diff_Upsilon2_P) - conj(diff_Upsilon2_X) * diff_Upsilon1_P) +"
+            "0.5 * Upsilon1 * (X * conj(diff_Upsilon2_X) + P * conj(diff_Upsilon2_P)) + "
+            "0.5 * conj(Upsilon2) * (X * diff_Upsilon1_X + P * diff_Upsilon1_P)",
+            local_dict=vars(self),
+            out=self.D12
+        )
+
+        ne.evaluate(
+            "2. * abs(Upsilon2) ** 2  + real( "
+            "   X * Upsilon2 * conj(diff_Upsilon2_X) + P * Upsilon2 * conj(diff_Upsilon2_P) + "
+            "   2.j * diff_Upsilon2_X * conj(diff_Upsilon2_P)"
+            ")",
+            local_dict=vars(self),
+            out=self.D22
+        )
 
     def set_wavefunction(self, new_Upsilon1, new_Upsilon2):
         """
@@ -660,20 +701,25 @@ if __name__ == '__main__':
             :param frame_num: current frame number
             :return: image objects
             """
-
-
-
-            #print(np.linalg.eigvalsh(self.quant_sys.quantum_rho))
-
-            #print(quantum_rho.dot(quantum_rho).trace())
+            # self.quant_sys.get_hybrid_D()
+            #
+            # rho = np.array([
+            #     [self.quant_sys.D11.sum(), self.quant_sys.D12.sum()],
+            #     [self.quant_sys.D12.sum().conj(), self.quant_sys.D22.sum()]
+            # ])
+            # rho *= self.quant_sys.dXdP
+            #
+            # print(
+            #     np.linalg.norm(rho - self.quant_sys.get_quantum_rho())
+            # )
 
             # propagate the wigner function
             self.img_Upsilon1.set_array(
-                self.quant_sys.get_classical_rho()
+                self.quant_sys.Upsilon2.real
             )
 
             self.img_Upsilon2.set_array(
-                self.quant_sys.Upsilon1.imag
+                self.quant_sys.Upsilon1.real
             )
 
             #avX1 = ne.evaluate("sum(classical_rho * P)", local_dict=vars(self.quant_sys)) * self.quant_sys.dXdP
