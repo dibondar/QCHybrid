@@ -1,10 +1,10 @@
 import numpy as np
-import numexpr as ne
 import pyfftw
 import pickle
 import warnings
 from types import MethodType, FunctionType
-
+import numexpr as ne
+from numexpr import evaluate
 
 class QCHybrid(object):
     """
@@ -240,6 +240,17 @@ class QCHybrid(object):
         self.code_expB_Upsilon1 = "({}) * Upsilon1_copy + ({}) * Upsilon2_copy".format(P11, P12).format(**Pb_params)
         self.code_expB_Upsilon2 = "({}) * Upsilon1_copy + ({}) * Upsilon2_copy".format(P21, P22).format(**Pb_params)
 
+        ########################################################################################
+
+        # Call the initialization procedure
+        self.post_initialization()
+
+    def post_initialization(self):
+        """
+        Place holder for the user defined function to be call after at the constructor
+        """
+        pass
+
     def propagate(self, time_steps=1):
         """
         Time propagate the hybrid wavefunction saved in self.Upsilon1 and self.Upsilon2
@@ -267,18 +278,18 @@ class QCHybrid(object):
             self.t += 0.5 * self.dt
 
             # Pre calculate Pc = exp(C)
-            ne.evaluate(self.code_Pc_11, local_dict=vars(self), out=self.Pc_11)
-            ne.evaluate(self.code_Pc_12, local_dict=vars(self), out=self.Pc_12)
-            ne.evaluate(self.code_Pc_21, local_dict=vars(self), out=self.Pc_21)
-            ne.evaluate(self.code_Pc_22, local_dict=vars(self), out=self.Pc_22)
+            evaluate(self.code_Pc_11, local_dict=vars(self), out=self.Pc_11)
+            evaluate(self.code_Pc_12, local_dict=vars(self), out=self.Pc_12)
+            evaluate(self.code_Pc_21, local_dict=vars(self), out=self.Pc_21)
+            evaluate(self.code_Pc_22, local_dict=vars(self), out=self.Pc_22)
 
             # Apply exp(C)
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kX * (Pc_11 * Upsilon1 + Pc_12 * Upsilon2)",
                 local_dict=vars(self),
                 out=Upsilon1_copy
             )
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kX * (Pc_21 * Upsilon1 + Pc_22 * Upsilon2)",
                 local_dict=vars(self),
                 out=Upsilon2_copy
@@ -289,26 +300,26 @@ class QCHybrid(object):
             self.transform_x2lambda(Upsilon2_copy, Upsilon2)
 
             # Pre-calculate exp(diff_K)
-            ne.evaluate(self.code_exp_diff_K, local_dict=vars(self), out=exp_diff_K)
+            evaluate(self.code_exp_diff_K, local_dict=vars(self), out=exp_diff_K)
 
             # Apply exp(diff_K)
 
             #Upsilon1 *= exp_diff_K
-            ne.evaluate("Upsilon1 * exp_diff_K", out=Upsilon1)
+            evaluate("Upsilon1 * exp_diff_K", out=Upsilon1)
             #Upsilon2 *= exp_diff_K
-            ne.evaluate("Upsilon2 * exp_diff_K", out=Upsilon2)
+            evaluate("Upsilon2 * exp_diff_K", out=Upsilon2)
 
             # p lambda  ->  p x
             self.transform_lambda2x(Upsilon1, Upsilon1_copy)
             self.transform_lambda2x(Upsilon2, Upsilon2_copy)
 
             # Apply exp(C)
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kP * (Pc_11 * Upsilon1_copy + Pc_12 * Upsilon2_copy)",
                 local_dict=vars(self),
                 out=Upsilon1
             )
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kP * (Pc_21 * Upsilon1_copy + Pc_22 * Upsilon2_copy)",
                 local_dict=vars(self),
                 out=Upsilon2
@@ -319,20 +330,20 @@ class QCHybrid(object):
             self.transform_p2theta(Upsilon2, Upsilon2_copy)
 
             # Apply exp(B)
-            ne.evaluate(self.code_expB_Upsilon1, local_dict=vars(self), out=Upsilon1)
-            ne.evaluate(self.code_expB_Upsilon2, local_dict=vars(self), out=Upsilon2)
+            evaluate(self.code_expB_Upsilon1, local_dict=vars(self), out=Upsilon1)
+            evaluate(self.code_expB_Upsilon2, local_dict=vars(self), out=Upsilon2)
 
             # theta x  ->  p x
             self.transform_theta2p(Upsilon1, Upsilon1_copy)
             self.transform_theta2p(Upsilon2, Upsilon2_copy)
 
             # Apply exp(C)
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kP * (Pc_11 * Upsilon1_copy + Pc_12 * Upsilon2_copy)",
                 local_dict=vars(self),
                 out=Upsilon1
             )
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kP * (Pc_21 * Upsilon1_copy + Pc_22 * Upsilon2_copy)",
                 local_dict=vars(self),
                 out=Upsilon2
@@ -345,21 +356,21 @@ class QCHybrid(object):
             # Apply exp(diff_K)
 
             #Upsilon1_copy *= exp_diff_K
-            ne.evaluate("Upsilon1_copy * exp_diff_K", out=Upsilon1_copy)
+            evaluate("Upsilon1_copy * exp_diff_K", out=Upsilon1_copy)
             #Upsilon2_copy *= exp_diff_K
-            ne.evaluate("Upsilon2_copy * exp_diff_K", out=Upsilon2_copy)
+            evaluate("Upsilon2_copy * exp_diff_K", out=Upsilon2_copy)
 
             # p lambda  ->  p x
             self.transform_lambda2x(Upsilon1_copy, Upsilon1)
             self.transform_lambda2x(Upsilon2_copy, Upsilon2)
 
             # Apply exp(C)
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kX * (Pc_11 * Upsilon1 + Pc_12 * Upsilon2)",
                 local_dict=vars(self),
                 out=Upsilon1_copy
             )
-            ne.evaluate(
+            evaluate(
                 "(-1) ** kX * (Pc_21 * Upsilon1 + Pc_22 * Upsilon2)",
                 local_dict=vars(self),
                 out=Upsilon2_copy
@@ -383,10 +394,16 @@ class QCHybrid(object):
             # normalization
             self.normalize()
 
-            # calculate the Ehrenfest theorems
-            # self.get_Ehrenfest()
+            # call user defined post-processing
+            self.post_processing()
 
         return self
+
+    def post_processing(self):
+        """
+        Place holder for the user defined function to be call at the end of each propagation step
+        """
+        pass
 
     def normalize(self):
         """
@@ -398,14 +415,14 @@ class QCHybrid(object):
 
         # get the normalization constant
         N = np.sqrt(
-            ne.evaluate("sum(abs(Upsilon1) ** 2 + abs(Upsilon2) ** 2)").real * self.dXdP
+            evaluate("sum(abs(Upsilon1) ** 2 + abs(Upsilon2) ** 2)").real * self.dXdP
         )
 
         #Upsilon1 /= N
-        ne.evaluate("Upsilon1 / N", out=Upsilon1)
+        evaluate("Upsilon1 / N", out=Upsilon1)
 
         #Upsilon2 /= N
-        ne.evaluate("Upsilon2 / N", out=Upsilon2)
+        evaluate("Upsilon2 / N", out=Upsilon2)
 
     def get_quantum_rho(self):
         """
@@ -415,33 +432,41 @@ class QCHybrid(object):
         Upsilon1 = self.Upsilon1
         Upsilon2 = self.Upsilon2
 
-        rho12 = ne.evaluate("sum(Upsilon1 * conj(Upsilon2))")
+        rho12 = evaluate("sum(Upsilon1 * conj(Upsilon2))")
 
         self.quantum_rho = np.array([
-            [ne.evaluate("sum(abs(Upsilon1) ** 2)"), rho12],
-            [rho12.conj(), ne.evaluate("sum(abs(Upsilon2) ** 2)")]
+            [evaluate("sum(abs(Upsilon1) ** 2)"), rho12],
+            [rho12.conj(), evaluate("sum(abs(Upsilon2) ** 2)")]
         ])
 
         self.quantum_rho /= self.quantum_rho.trace()
 
         return self.quantum_rho
 
-    def quantum_average(self, quantum_observable):
+    def quantum_average(self, quantum_observable, calculate=True):
         """
         Calculate the expectation value of the observable acting only on the quantum degree of freedom
         :param quantum_observable: 2x2 numpy.array
+        :param calculate: a boolean flag indicating whether the quantum rho is to be calculated
         :return: float
         """
-        return self.get_quantum_rho().dot(quantum_observable).trace().real
+        if calculate:
+            self.get_quantum_rho()
 
-    def classical_average(self, classical_observable):
+        return self.quantum_rho.dot(quantum_observable).trace().real
+
+    def classical_average(self, classical_observable, calculate=True):
         """
         Calculate the expectation value of the observable acting only on the classical degree of freedom
         :param classical_observable: string to be evaluated by numexpr
+        :param calculate: a boolean flag indicating whether the classical rho is to be calculated
         :return: float
         """
-        return ne.evaluate(
-            "sum(({}) * (abs(Upsilon1) ** 2 + abs(Upsilon2) ** 2))".format(classical_observable),
+        if calculate:
+            self.get_classical_rho()
+
+        return evaluate(
+            "sum(({}) * classical_rho)".format(classical_observable),
             local_dict=vars(self),
         ) * self.dXdP
 
@@ -460,22 +485,22 @@ class QCHybrid(object):
         #
         ############################################################################################
 
-        ne.evaluate("(-1) ** kX * Upsilon1", local_dict=vars(self), out=Upsilon1_copy)
-        ne.evaluate("(-1) ** kX * Upsilon2", local_dict=vars(self), out=Upsilon2_copy)
+        evaluate("(-1) ** kX * Upsilon1", local_dict=vars(self), out=Upsilon1_copy)
+        evaluate("(-1) ** kX * Upsilon2", local_dict=vars(self), out=Upsilon2_copy)
 
         # p x  ->  p lambda
         self.transform_x2lambda(Upsilon1_copy, self.diff_Upsilon1_X)
         self.transform_x2lambda(Upsilon2_copy, self.diff_Upsilon2_X)
 
-        ne.evaluate("diff_Upsilon1_X * 1j * Lambda", local_dict=vars(self), out=Upsilon1_copy)
-        ne.evaluate("diff_Upsilon2_X * 1j * Lambda", local_dict=vars(self), out=Upsilon2_copy)
+        evaluate("diff_Upsilon1_X * 1j * Lambda", local_dict=vars(self), out=Upsilon1_copy)
+        evaluate("diff_Upsilon2_X * 1j * Lambda", local_dict=vars(self), out=Upsilon2_copy)
 
         # p lambda  ->  p x
         self.transform_lambda2x(Upsilon1_copy, self.diff_Upsilon1_X)
         self.transform_lambda2x(Upsilon2_copy, self.diff_Upsilon2_X)
 
-        ne.evaluate("(-1) ** kX * diff_Upsilon1_X", local_dict=vars(self), out=self.diff_Upsilon1_X)
-        ne.evaluate("(-1) ** kX * diff_Upsilon2_X", local_dict=vars(self), out=self.diff_Upsilon2_X)
+        evaluate("(-1) ** kX * diff_Upsilon1_X", local_dict=vars(self), out=self.diff_Upsilon1_X)
+        evaluate("(-1) ** kX * diff_Upsilon2_X", local_dict=vars(self), out=self.diff_Upsilon2_X)
 
         ############################################################################################
         #
@@ -483,34 +508,36 @@ class QCHybrid(object):
         #
         ############################################################################################
 
-        ne.evaluate("(-1) ** kP * Upsilon1", local_dict=vars(self), out=Upsilon1_copy)
-        ne.evaluate("(-1) ** kP * Upsilon2", local_dict=vars(self), out=Upsilon2_copy)
+        evaluate("(-1) ** kP * Upsilon1", local_dict=vars(self), out=Upsilon1_copy)
+        evaluate("(-1) ** kP * Upsilon2", local_dict=vars(self), out=Upsilon2_copy)
 
         # p x -> theta x
         self.transform_p2theta(Upsilon1_copy, self.diff_Upsilon1_P)
         self.transform_p2theta(Upsilon2_copy, self.diff_Upsilon2_P)
 
-        ne.evaluate("diff_Upsilon1_P * 1j * Theta", local_dict=vars(self), out=Upsilon1_copy)
-        ne.evaluate("diff_Upsilon2_P * 1j * Theta", local_dict=vars(self), out=Upsilon2_copy)
+        evaluate("diff_Upsilon1_P * 1j * Theta", local_dict=vars(self), out=Upsilon1_copy)
+        evaluate("diff_Upsilon2_P * 1j * Theta", local_dict=vars(self), out=Upsilon2_copy)
 
         # theta x -> p x
         self.transform_theta2p(Upsilon1_copy, self.diff_Upsilon1_P)
         self.transform_theta2p(Upsilon2_copy, self.diff_Upsilon2_P)
 
-        ne.evaluate("(-1) ** kP * diff_Upsilon1_P", local_dict=vars(self), out=self.diff_Upsilon1_P)
-        ne.evaluate("(-1) ** kP * diff_Upsilon2_P", local_dict=vars(self), out=self.diff_Upsilon2_P)
+        evaluate("(-1) ** kP * diff_Upsilon1_P", local_dict=vars(self), out=self.diff_Upsilon1_P)
+        evaluate("(-1) ** kP * diff_Upsilon2_P", local_dict=vars(self), out=self.diff_Upsilon2_P)
 
-    def get_classical_rho(self):
+    def get_classical_rho(self, calculate=True):
         """
         Calculate the Liouville density and save it in self.classical_rho
+        :param calculate: a boolean flag indicating whether the derivatives of Upsion are to be calculated
         :return: self.classical_rho.real
         """
-        self.get_Upsilon_gradinet()
+        if calculate:
+            self.get_Upsilon_gradinet()
 
-        ne.evaluate(
-            "2. * abs(Upsilon1) ** 2 + 2. * abs(Upsilon2) ** 2 + real("\
-            "   X * (Upsilon1 * conj(diff_Upsilon1_X) + Upsilon2 * conj(diff_Upsilon2_X)) + "\
-            "   P * (Upsilon1 * conj(diff_Upsilon1_P) + Upsilon2 * conj(diff_Upsilon2_P)) + "\
+        evaluate(
+            "2. * abs(Upsilon1) ** 2 + 2. * abs(Upsilon2) ** 2 + real("
+            "   X * (Upsilon1 * conj(diff_Upsilon1_X) + Upsilon2 * conj(diff_Upsilon2_X)) + "
+            "   P * (Upsilon1 * conj(diff_Upsilon1_P) + Upsilon2 * conj(diff_Upsilon2_P)) + "
             "   2.j * (diff_Upsilon1_X * conj(diff_Upsilon1_P) + diff_Upsilon2_X * conj(diff_Upsilon2_P))"
             ")",
             local_dict = vars(self),
@@ -519,14 +546,16 @@ class QCHybrid(object):
 
         return self.classical_rho.real
 
-    def get_hybrid_D(self):
+    def get_hybrid_D(self, calculate=True):
         """
         Calculate the hybrid density matrix and save its components in self.D11, self.D12, and self.D22
+        :param calculate: a boolean flag indicating whether the derivatives of Upsion are to be calculated
         :return: None
         """
-        self.get_Upsilon_gradinet()
+        if calculate:
+            self.get_Upsilon_gradinet()
 
-        ne.evaluate(
+        evaluate(
             "2. * abs(Upsilon1) ** 2  + real( "
             "   X * Upsilon1 * conj(diff_Upsilon1_X) + P * Upsilon1 * conj(diff_Upsilon1_P) + "
             "   2.j * diff_Upsilon1_X * conj(diff_Upsilon1_P)"
@@ -535,7 +564,7 @@ class QCHybrid(object):
             out=self.D11
         )
 
-        ne.evaluate(
+        evaluate(
             "2. * Upsilon1 * conj(Upsilon2) + "
             "1j * (diff_Upsilon1_X * conj(diff_Upsilon2_P) - conj(diff_Upsilon2_X) * diff_Upsilon1_P) +"
             "0.5 * Upsilon1 * (X * conj(diff_Upsilon2_X) + P * conj(diff_Upsilon2_P)) + "
@@ -544,7 +573,7 @@ class QCHybrid(object):
             out=self.D12
         )
 
-        ne.evaluate(
+        evaluate(
             "2. * abs(Upsilon2) ** 2  + real( "
             "   X * Upsilon2 * conj(diff_Upsilon2_X) + P * Upsilon2 * conj(diff_Upsilon2_P) + "
             "   2.j * diff_Upsilon2_X * conj(diff_Upsilon2_P)"
@@ -553,6 +582,28 @@ class QCHybrid(object):
             out=self.D22
         )
 
+    def hybrid_average(self, observable, calculate=True):
+        """
+        Obtain the expectation value of a general observable
+        (which acts on both the classical and quantum degrees of freedom)
+        :param observable: a list of strings to be evaluated by numexpr.
+            observable[k] describes the k-th coefficient in front of the k-th Pauli matrix.
+                observable = sum_{k=0}^3 \sigma_k observable[k]
+        :param calculate:  a boolean flag indicating whether the hybrid density matrix needs to be evaluated
+        :return: complex
+        """
+        assert len(observable) == 4, "observable should be a list of four strings to be evaluated by numexpr"
+
+        if calculate:
+            self.get_hybrid_D()
+
+        return evaluate(
+            "sum(({}) * (D11 + D22) + 2. * real(D12) * ({}) - 2. * imag(D12) * ({}) + (D11 - D22) * ({}))".format(
+                *observable
+            ),
+            local_dict=vars(self)
+        ) * self.dXdP
+
     def set_wavefunction(self, new_Upsilon1, new_Upsilon2):
         """
         Set the initial Wigner function
@@ -560,7 +611,7 @@ class QCHybrid(object):
         :return: self
         """
         if isinstance(new_Upsilon1, str):
-            ne.evaluate(new_Upsilon1, local_dict=vars(self), out=self.Upsilon1)
+            evaluate(new_Upsilon1, local_dict=vars(self), out=self.Upsilon1)
 
         elif isinstance(new_Upsilon1, np.ndarray):
             np.copyto(self.Upsilon1, new_Upsilon1)
@@ -569,7 +620,7 @@ class QCHybrid(object):
             raise ValueError("new_Upsilon1 must be either string or numpy.array")
 
         if isinstance(new_Upsilon2, str):
-            ne.evaluate(new_Upsilon2, local_dict=vars(self), out=self.Upsilon2)
+            evaluate(new_Upsilon2, local_dict=vars(self), out=self.Upsilon2)
 
         elif isinstance(new_Upsilon2, np.ndarray):
             np.copyto(self.Upsilon2, new_Upsilon2)
@@ -654,9 +705,19 @@ if __name__ == '__main__':
             :param self:
             :return:
             """
+            def post_initialization(self):
+                self.energy = []
+                self.time = []
+                self.hamiltonian_observable = (self.K + " + " + self.U, self.f1, self.f2, self.f3)
+
+            def post_processing(self):
+                self.time.append(self.t)
+                self.energy.append(
+                    self.hybrid_average(self.hamiltonian_observable)
+                )
+
             self.quant_sys = QCHybrid(
                 t=0,
-
                 dt=0.05,
 
                 X_gridDIM=256,
@@ -669,31 +730,35 @@ if __name__ == '__main__':
                 diff_K="P",
 
                 #omega=np.random.uniform(1, 3),
-                omega=1.,
+                omega=1,
 
                 U="0.5 * (omega * X) ** 2",
                 diff_U="omega ** 2 * X",
 
-                alpha=0.1,
+                alpha=1,
 
-                f1="alpha * X + alpha",
+                f1="alpha * X",
                 diff_f1="alpha",
 
-                f2="alpha * X + alpha",
+                f2="alpha * X",
                 diff_f2="alpha",
 
-                f3="alpha * X + alpha",
+                f3="alpha * X",
                 diff_f3="alpha",
+
+                # add facility to calculate the expectation value of energy
+                post_initialization=post_initialization,
+                post_processing=post_processing,
             )
 
             Upsilon = "exp( -{sigma} * (X - {X0}) ** 2 - (1. / {sigma}) * (P - {P0}) ** 2 )".format(
-                sigma=np.random.uniform(1., 2.),
-                P0=np.random.uniform(-3., 3.),
-                X0=np.random.uniform(-3., 3.),
+                 sigma=np.random.uniform(1., 2.),
+                 P0=np.random.uniform(-3., 3.),
+                 X0=np.random.uniform(-3., 3.),
             )
 
             # set randomised initial condition
-            self.quant_sys.set_wavefunction(Upsilon, "0. * X + 0. * P")
+            self.quant_sys.set_wavefunction(Upsilon, Upsilon)
 
         def __call__(self, frame_num):
             """
@@ -701,6 +766,8 @@ if __name__ == '__main__':
             :param frame_num: current frame number
             :return: image objects
             """
+            quant_sys = self.quant_sys
+
             # self.quant_sys.get_hybrid_D()
             #
             # rho = np.array([
@@ -713,16 +780,35 @@ if __name__ == '__main__':
             #     np.linalg.norm(rho - self.quant_sys.get_quantum_rho())
             # )
 
+
+            #print( np.linalg.eigvalsh(self.quant_sys.get_quantum_rho()) )
+            #print(self.quant_sys.quantum_rho.dot(self.quant_sys.quantum_rho).trace())
+            #print()
+
             # propagate the wigner function
             self.img_Upsilon1.set_array(
-                self.quant_sys.Upsilon2.real
+                #self.quant_sys.Upsilon2.imag
+                quant_sys.get_classical_rho()
             )
+
+            print(
+                quant_sys.classical_average("X", False) - quant_sys.hybrid_average(("X", "0.", "0.", "0."), False)
+            )
+
+            sigma_x = ((0, 1), (1, 0))
+
+            print(
+                quant_sys.quantum_average(sigma_x) - quant_sys.hybrid_average(("0", "1", "0", "0"), False)
+
+            )
+
+            print("\n")
 
             self.img_Upsilon2.set_array(
-                self.quant_sys.Upsilon1.real
+                quant_sys.Upsilon1.real
             )
 
-            #avX1 = ne.evaluate("sum(classical_rho * P)", local_dict=vars(self.quant_sys)) * self.quant_sys.dXdP
+            #avX1 = evaluate("sum(classical_rho * P)", local_dict=vars(self.quant_sys)) * self.quant_sys.dXdP
             #avX2 = self.quant_sys.classical_average("P")
 
             #print(avX1 / avX2)
@@ -735,9 +821,30 @@ if __name__ == '__main__':
             return self.img_Upsilon1, self.img_Upsilon2
 
 
+    #######################################################################################################
+
     fig = plt.gcf()
     visualizer = VisualizeHybrid(fig)
     animation = FuncAnimation(
         fig, visualizer, frames=np.arange(100), repeat=True, blit=True
     )
+    plt.show()
+
+    #######################################################################################################
+
+    # Check whether expectation value of energy is preserved
+
+    quant_sys = visualizer.quant_sys
+    quant_sys.energy = np.array(quant_sys.energy).real
+
+    plt.plot(quant_sys.time, quant_sys.energy)
+    plt.xlabel('$t$ (a.u.)')
+    plt.ylabel('$\\langle \hat{H} \\rangle$')
+
+    print(
+        "Energy variation = {:.1e} %".format(
+            100. * (1 - np.abs(quant_sys.energy).min() / np.abs(quant_sys.energy).max())
+        )
+    )
+
     plt.show()
