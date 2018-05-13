@@ -795,10 +795,10 @@ if __name__ == '__main__':
                 quant_sys.classical_average("X", False) - quant_sys.hybrid_average(("X", "0.", "0.", "0."), False)
             )
 
-            sigma_x = ((0, 1), (1, 0))
+            sigma_x = ((1, 0), (0, -1))
 
             print(
-                quant_sys.quantum_average(sigma_x) - quant_sys.hybrid_average(("0", "1", "0", "0"), False)
+                quant_sys.quantum_average(sigma_x) - quant_sys.hybrid_average(("0", "0", "0", "1"), False)
 
             )
 
