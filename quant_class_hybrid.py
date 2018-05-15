@@ -540,7 +540,7 @@ class QCHybrid(object):
             "   P * (Upsilon1 * conj(diff_Upsilon1_P) + Upsilon2 * conj(diff_Upsilon2_P)) + "
             "   2.j * (diff_Upsilon1_X * conj(diff_Upsilon1_P) + diff_Upsilon2_X * conj(diff_Upsilon2_P))"
             ")",
-            local_dict = vars(self),
+            local_dict=vars(self),
             out=self.classical_rho
         )
 
@@ -603,6 +603,41 @@ class QCHybrid(object):
             ),
             local_dict=vars(self)
         ) * self.dXdP
+
+    def gaussian_filter(self, Upsilon, sigma_x, sigma_p):
+        """
+        Convolve Upsilon with a Gaussian. The result will be stored in Upslion
+        :param Upsilon: numpy.array of the same shape as self.Upsilon1
+        :param sigma_x: the standard deviation in units of self.dX
+        :param sigma_p: the standard deviation in units of self.dP
+        :return: None
+        """
+        Upsilon_copy = self.Upsilon1_copy
+
+        evaluate("(-1) ** (kX + kP) * Upsilon", global_dict=vars(self), out=Upsilon_copy)
+
+        # p x  ->  p lambda
+        self.transform_x2lambda(Upsilon_copy, Upsilon)
+
+        # p lambda -> theta lambda
+        self.transform_p2theta(Upsilon, Upsilon_copy)
+
+        alpha_theta = 0.25 * (sigma_p * self.dP) ** 2
+        alpha_lambda = 0.25 * (sigma_x * self.dX) ** 2
+
+        evaluate(
+            "Upsilon_copy * exp(-alpha_theta * Theta ** 2 -alpha_lambda * Lambda ** 2)",
+            global_dict=vars(self),
+            out=Upsilon_copy
+        )
+
+        # theta lambda -> p lambda
+        self.transform_theta2p(Upsilon_copy, Upsilon)
+
+        # p lambda  ->  p x
+        self.transform_lambda2x(Upsilon, Upsilon_copy)
+
+        evaluate("(-1) ** (kX + kP) * Upsilon_copy", global_dict=vars(self), out=Upsilon)
 
     def set_wavefunction(self, new_Upsilon1, new_Upsilon2):
         """

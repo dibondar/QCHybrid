@@ -79,10 +79,10 @@ class VisualizeHybrid:
             t=0,
             dt=0.05,
 
-            X_gridDIM=2 * 256,
+            X_gridDIM=4 * 256,
             X_amplitude=10.,
 
-            P_gridDIM=2 * 256,
+            P_gridDIM=4 * 256,
             P_amplitude=10.,
 
             # Parameters of the harmonic oscillator
@@ -91,7 +91,7 @@ class VisualizeHybrid:
             X0=0,
             beta=1, # the inverse temperature used in the initial condition
 
-            D=1e-4,
+            D=0,
 
             # Parameters of the Hamiltonian
             K="P ** 2 / (2. * m)",
@@ -104,10 +104,10 @@ class VisualizeHybrid:
             #U="0.5 * X ** 2",
             #diff_U="X",
 
-            alpha=0,
+            alpha=0.0,
 
-            f1="alpha * X",
-            diff_f1="alpha",
+            f1="alpha * X ** 3",
+            diff_f1="alpha * 3 * X ** 2",
 
             f2="alpha * X",
             diff_f2="alpha",
@@ -135,9 +135,7 @@ class VisualizeHybrid:
         # set randomised initial condition
         self.quant_sys.set_wavefunction(Upsilon, "0 * X + 0 * P")
 
-        #from scipy.ndimage.filters import gaussian_filter
-        #self.quant_sys.Upsilon1 = gaussian_filter(self.quant_sys.Upsilon1, 0.5)
-
+        self.quant_sys.gaussian_filter(self.quant_sys.Upsilon1, 1.6, 0)
 
     def __call__(self, frame_num):
         """
@@ -170,16 +168,18 @@ class VisualizeHybrid:
             quant_sys.get_classical_rho()
         )
 
-        print(
-            quant_sys.classical_average("X", False) - quant_sys.hybrid_average(("X", "0.", "0.", "0."), False)
-        )
+        # print(
+        #     quant_sys.classical_average("X", False) - quant_sys.hybrid_average(("X", "0.", "0.", "0."), False)
+        # )
+        #
+        # sigma_x = ((1, 0), (0, -1))
+        #
+        # print(
+        #     quant_sys.quantum_average(sigma_x) - quant_sys.hybrid_average(("0", "0", "0", "1"), False)
+        #
+        # )
 
-        sigma_x = ((1, 0), (0, -1))
-
-        print(
-            quant_sys.quantum_average(sigma_x) - quant_sys.hybrid_average(("0", "0", "0", "1"), False)
-
-        )
+        print(quant_sys.classical_rho.sum() * quant_sys.dXdP)
 
         print("\n")
 
