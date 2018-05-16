@@ -6,6 +6,7 @@ from types import MethodType, FunctionType
 import numexpr as ne
 from numexpr import evaluate
 
+
 class QCHybrid(object):
     """
     The Koopman-von Neumann formulation of hybrid classical-quantum systems
@@ -13,7 +14,7 @@ class QCHybrid(object):
     """
 
     def __init__(self, *, X_gridDIM, X_amplitude, P_gridDIM, P_amplitude, U, diff_U, K, diff_K,
-                 f1, diff_f1, f2, diff_f2, f3, diff_f3, dt, t, **kwargs):
+                 f1, diff_f1, f2, diff_f2, f3, diff_f3, dt, t, D=0, **kwargs):
         """
         Constructor
         :param X_gridDIM: the coordinate grid size
@@ -27,8 +28,8 @@ class QCHybrid(object):
         :param f1, diff_f1, f2, diff_f2, f3, diff_f3: coupling functions and their derivatives
         :param dt: time step
         :param t: initial value of time
+        :param D: (optional) the diffusion coefficient to mitigate the velocity filamentation
         :param kwargs: other parameters
-            (e.g., D is the diffusion coefficient to mitigate the velocity filamentation)
         """
 
         self.X_gridDIM = X_gridDIM
@@ -49,6 +50,7 @@ class QCHybrid(object):
 
         self.dt = dt
         self.t = t
+        self.D = D
 
         # save all the other attributes
         for name, value in kwargs.items():
@@ -58,13 +60,6 @@ class QCHybrid(object):
             # otherwise bind it as a property
             else:
                 setattr(self, name, value)
-
-        try:
-            self.D
-        except AttributeError:
-            self.D = 0.
-            warnings.warn("the diffusion coefficient (D) to mitigate the velocity filamentation "
-                          "was not specified thus it will be set to zero")
 
         ########################################################################################
         #
@@ -164,6 +159,37 @@ class QCHybrid(object):
 
         # Theta grid (variable conjugate to the momentum)
         self.Theta = (self.kP - self.P_gridDIM / 2) * (np.pi / self.P_amplitude)
+        
+        ########################################################################################
+        #
+        #   Generate grids for self.get_Upsilon_gradient
+        #
+        ########################################################################################
+
+        from scipy.sparse import diags
+
+        # generate the matrix corresponding to the second order finite difference operator
+        fdiff = diags([-1., 0, 1.], [-1, 0, 1], shape=self.Upsilon1.shape, dtype=self.Upsilon1.dtype, format='csr')
+        fdiff[0, -1] = -1.
+        fdiff[-1, 0] = 1.
+
+        # Diagonalize the matrix using FFT
+
+        # Convert the matrix to the dense array
+        fdiff.toarray(out=self.Upsilon1)
+
+        self.transform_x2lambda(self.Upsilon1, self.Upsilon1_copy)
+        self.transform_theta2p(self.Upsilon1_copy, self.Upsilon1)
+
+        eigenvals = self.Upsilon1.diagonal().imag
+
+        # Modified lambda grid (variable conjugate to the coordinate)
+        self.Lambda_ = eigenvals / (2. * self.dX)
+        self.Lambda_ = self.Lambda_[np.newaxis, :]
+
+        # Modified theta grid (variable conjugate to the momentum)
+        self.Theta_ = eigenvals / (2. * self.dP)
+        self.Theta_ = self.Theta_[:, np.newaxis]
 
         ########################################################################################
         #
@@ -470,7 +496,7 @@ class QCHybrid(object):
             local_dict=vars(self),
         ) * self.dXdP
 
-    def get_Upsilon_gradinet(self):
+    def get_Upsilon_gradient(self):
         """
         Save the gradients of Upsilon1 and Upsilon2 into
         self.diff_Upsilon1_X, self.diff_Upsilon1_P, self.diff_Upsilon2_X, and self.diff_Upsilon2_P respectively
@@ -492,8 +518,8 @@ class QCHybrid(object):
         self.transform_x2lambda(Upsilon1_copy, self.diff_Upsilon1_X)
         self.transform_x2lambda(Upsilon2_copy, self.diff_Upsilon2_X)
 
-        evaluate("diff_Upsilon1_X * 1j * Lambda", local_dict=vars(self), out=Upsilon1_copy)
-        evaluate("diff_Upsilon2_X * 1j * Lambda", local_dict=vars(self), out=Upsilon2_copy)
+        evaluate("diff_Upsilon1_X * 1j * Lambda_", local_dict=vars(self), out=Upsilon1_copy)
+        evaluate("diff_Upsilon2_X * 1j * Lambda_", local_dict=vars(self), out=Upsilon2_copy)
 
         # p lambda  ->  p x
         self.transform_lambda2x(Upsilon1_copy, self.diff_Upsilon1_X)
@@ -515,8 +541,8 @@ class QCHybrid(object):
         self.transform_p2theta(Upsilon1_copy, self.diff_Upsilon1_P)
         self.transform_p2theta(Upsilon2_copy, self.diff_Upsilon2_P)
 
-        evaluate("diff_Upsilon1_P * 1j * Theta", local_dict=vars(self), out=Upsilon1_copy)
-        evaluate("diff_Upsilon2_P * 1j * Theta", local_dict=vars(self), out=Upsilon2_copy)
+        evaluate("diff_Upsilon1_P * 1j * Theta_", local_dict=vars(self), out=Upsilon1_copy)
+        evaluate("diff_Upsilon2_P * 1j * Theta_", local_dict=vars(self), out=Upsilon2_copy)
 
         # theta x -> p x
         self.transform_theta2p(Upsilon1_copy, self.diff_Upsilon1_P)
@@ -532,7 +558,7 @@ class QCHybrid(object):
         :return: self.classical_rho.real
         """
         if calculate:
-            self.get_Upsilon_gradinet()
+            self.get_Upsilon_gradient()
 
         evaluate(
             "2. * abs(Upsilon1) ** 2 + 2. * abs(Upsilon2) ** 2 + real("
@@ -553,7 +579,7 @@ class QCHybrid(object):
         :return: None
         """
         if calculate:
-            self.get_Upsilon_gradinet()
+            self.get_Upsilon_gradient()
 
         evaluate(
             "2. * abs(Upsilon1) ** 2  + real( "
@@ -638,6 +664,34 @@ class QCHybrid(object):
         self.transform_lambda2x(Upsilon, Upsilon_copy)
 
         evaluate("(-1) ** (kX + kP) * Upsilon_copy", global_dict=vars(self), out=Upsilon)
+
+    def rotate(self, Upsilon, alpha):
+        """
+        Rotate the array Upsilon by angle alpha. Results will be saved in Upsilon
+        :param Upsilon: numpy.array
+        :param alpha: float
+        :return: None
+        """
+        Upsilon1_copy = self.Upsilon1_copy
+
+        evaluate("(-1) ** (kX + kP) * Upsilon", global_dict=vars(self), out=Upsilon)
+
+        # Shear X
+        self.transform_x2lambda(Upsilon, Upsilon1_copy)
+        evaluate("exp(-1j * tan(0.5 * alpha) * P * Lambda) * Upsilon1_copy", out=Upsilon1_copy, global_dict=vars(self))
+        self.transform_lambda2x(Upsilon1_copy, Upsilon)
+
+        # Shear Y
+        self.transform_p2theta(Upsilon, Upsilon1_copy)
+        evaluate("exp(1j * sin(alpha) * Theta * X) * Upsilon1_copy", out=Upsilon1_copy, global_dict=vars(self))
+        self.transform_theta2p(Upsilon1_copy, Upsilon)
+
+        # Shear X
+        self.transform_x2lambda(Upsilon, Upsilon1_copy)
+        evaluate("exp(-1j * tan(0.5 * alpha) * P * Lambda) * Upsilon1_copy", out=Upsilon1_copy, global_dict=vars(self))
+        self.transform_lambda2x(Upsilon1_copy, Upsilon)
+
+        evaluate("(-1) ** (kX + kP) * Upsilon", global_dict=vars(self), out=Upsilon)
 
     def set_wavefunction(self, new_Upsilon1, new_Upsilon2):
         """

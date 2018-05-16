@@ -34,8 +34,8 @@ class VisualizeHybrid:
             extent=[self.quant_sys.X.min(), self.quant_sys.X.max(), self.quant_sys.P.min(), self.quant_sys.P.max()],
             origin='lower',
             cmap='seismic',
-            norm=WignerNormalize(vmin=-0.01, vmax=0.1)
-            #norm=WignerSymLogNorm(linthresh=1e-8, vmin=-0.01, vmax=0.1)
+            norm=WignerNormalize(vmin=-0.2, vmax=0.2)
+            #norm=WignerSymLogNorm(linthresh=1e-7, vmin=-0.01, vmax=0.1)
         )
 
         ax = fig.add_subplot(121)
@@ -56,7 +56,7 @@ class VisualizeHybrid:
         ax.set_xlabel('$x$ (a.u.)')
         ax.set_ylabel('$p$ (a.u.)')
 
-        # self.fig.colorbar(self.img_Upsilon1)
+        self.fig.colorbar(self.img_Upsilon1)
 
     def set_sys(self):
         """
@@ -80,10 +80,10 @@ class VisualizeHybrid:
             dt=0.05,
 
             X_gridDIM=4 * 256,
-            X_amplitude=10.,
+            X_amplitude=20.,
 
             P_gridDIM=4 * 256,
-            P_amplitude=10.,
+            P_amplitude=20.,
 
             # Parameters of the harmonic oscillator
             omega=1,
@@ -127,15 +127,28 @@ class VisualizeHybrid:
              theta="arctan2(omega * sqrt(m) * (X - X0), P / sqrt(m))"
         )
 
-        #Upsilon = "exp(-0.5 * beta * ({K} + {U}) + 0.5j * (X ** 2 + P ** 2) * arctan(X / (P + 1e-20)))".format(
-        #    U=self.quant_sys.U,
-        #    K=self.quant_sys.K,
-        #)
+        quant_sys = self.quant_sys
 
-        # set randomised initial condition
-        self.quant_sys.set_wavefunction(Upsilon, "0 * X + 0 * P")
+        quant_sys.set_wavefunction(Upsilon, "0 * X + 0 * P")
 
-        self.quant_sys.gaussian_filter(self.quant_sys.Upsilon1, 1.6, 0)
+        self.initialUpsilon1 = quant_sys.Upsilon1.copy()
+
+        quant_sys.Upsilon1 += self.initialUpsilon1
+
+        # quant_sys.gaussian_filter(quant_sys.Upsilon1, 1.6, 0)
+        # quant_sys.normalize()
+        #
+        # final = quant_sys.Upsilon1.copy()
+        #
+        # quant_sys.rotate(final, 0.5 * np.pi)
+        #
+        # final /= final.sum()
+        # quant_sys.Upsilon1 /= quant_sys.Upsilon1.sum()
+        #
+        # final += quant_sys.Upsilon1
+        #
+        # quant_sys.set_wavefunction(final, "0 * X + 0 * P")
+
 
     def __call__(self, frame_num):
         """
@@ -144,6 +157,11 @@ class VisualizeHybrid:
         :return: image objects
         """
         quant_sys = self.quant_sys
+
+        quant_sys.Upsilon1 -= self.initialUpsilon1
+        quant_sys.propagate(10)
+        quant_sys.Upsilon1 += self.initialUpsilon1
+
 
         # self.quant_sys.get_hybrid_D()
         #
@@ -161,6 +179,8 @@ class VisualizeHybrid:
         #print( np.linalg.eigvalsh(self.quant_sys.get_quantum_rho()) )
         #print(self.quant_sys.quantum_rho.dot(self.quant_sys.quantum_rho).trace())
         #print()
+
+
 
         # propagate the wigner function
         self.img_Upsilon1.set_array(
@@ -194,8 +214,6 @@ class VisualizeHybrid:
 
         #print(self.quant_sys.classical_average("1"))
         #print(self.quant_sys.classical_rho.sum() * self.quant_sys.dXdP)
-
-        self.quant_sys.propagate(10)
 
         return self.img_Upsilon1, self.img_Upsilon2
 
