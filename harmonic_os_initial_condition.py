@@ -77,7 +77,7 @@ class VisualizeHybrid:
 
         self.quant_sys = QCHybrid(
             t=0,
-            dt=0.05,
+            dt=0.01,
 
             X_gridDIM=4 * 256,
             X_amplitude=20.,
@@ -131,9 +131,9 @@ class VisualizeHybrid:
 
         quant_sys.set_wavefunction(Upsilon, "0 * X + 0 * P")
 
-        self.initialUpsilon1 = quant_sys.Upsilon1.copy()
+        self.initUpsilon1 = quant_sys.Upsilon1.copy()
 
-        quant_sys.Upsilon1 += self.initialUpsilon1
+        quant_sys.Upsilon1 += self.initUpsilon1
 
         # quant_sys.gaussian_filter(quant_sys.Upsilon1, 1.6, 0)
         # quant_sys.normalize()
@@ -158,10 +158,9 @@ class VisualizeHybrid:
         """
         quant_sys = self.quant_sys
 
-        quant_sys.Upsilon1 -= self.initialUpsilon1
+        quant_sys.Upsilon1 -= self.initUpsilon1
         quant_sys.propagate(10)
-        quant_sys.Upsilon1 += self.initialUpsilon1
-
+        quant_sys.Upsilon1 += self.initUpsilon1
 
         # self.quant_sys.get_hybrid_D()
         #
