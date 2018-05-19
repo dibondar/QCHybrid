@@ -34,8 +34,8 @@ class VisualizeHybrid:
             extent=[self.quant_sys.X.min(), self.quant_sys.X.max(), self.quant_sys.P.min(), self.quant_sys.P.max()],
             origin='lower',
             cmap='seismic',
-            #norm=WignerNormalize(vmin=-0.2, vmax=0.2)
-            norm=WignerSymLogNorm(linthresh=1e-7, vmin=-0.01, vmax=0.1)
+            norm=WignerNormalize(vmin=-0.2, vmax=0.2)
+            #norm=WignerSymLogNorm(linthresh=1e-7, vmin=-0.01, vmax=0.1)
         )
 
         ax = fig.add_subplot(121)
@@ -79,10 +79,10 @@ class VisualizeHybrid:
             t=0,
             dt=0.01,
 
-            X_gridDIM=8 * 256,
+            X_gridDIM=2 * 256,
             X_amplitude=10.,
 
-            P_gridDIM=8 * 256,
+            P_gridDIM=2 * 256,
             P_amplitude=10.,
 
             # Parameters of the harmonic oscillator
@@ -90,7 +90,7 @@ class VisualizeHybrid:
             m=1,
             X0=0,
             beta=1, # the inverse temperature used in the initial condition
-            n=-10,
+            n=1,
 
             D=0.,
 
@@ -123,21 +123,19 @@ class VisualizeHybrid:
 
         # The equilibrium stationary state corresponding to the classical thermal
         # state with the inverse temperature beta
-        Upsilon = "sqrt((2. * beta * n / omega - beta * {r} ** 2 -2.) * exp(-0.5 * beta * {r} ** 2)" \
-                  " -2. * beta * n / omega + 2.) / ({r} ** 2 - 2 * n / omega) * exp(-1j * n * {theta})".format(
-            r="sqrt((omega * sqrt(m) * (X - X0)) ** 2 + P ** 2 / m)",
-            theta="arctan2(omega * sqrt(m) * (X - X0), P / sqrt(m))"
+        Upsilon = "sqrt(omega * beta * n + 1 -(omega * beta * n + 0.5 * beta * {r} ** 2 + 1)" \
+                  " * exp(-0.5 * beta * {r} ** 2)) / (2 * n * omega + {r} ** 2) * exp(1j * n * {theta})".format(
+            r="sqrt((omega * sqrt(m) * X) ** 2 + P ** 2 / m)",
+            theta="arctan2(P / sqrt(m), omega * sqrt(m) * X)"
         )
 
-        # r = np.linspace(0, 10, 100)
-        #
-        # f = evaluate(
-        # "((2. * beta * n / omega - beta * {r} ** 2 -2.) * exp(-0.5 * beta * {r} ** 2)" \
-        # " -2. * beta * n / omega + 2.) / ({r} ** 2 - 2 * n / omega)**2".format(r="r"),
-        # global_dict=vars(self.quant_sys)
+        ###########################################################################################################
+        # Upsilon = "sqrt(2 * n * beta * omega + beta * {r} ** 2 + 2.) / (2. * n * omega + {r} ** 2)" \
+        #           "* exp(-0.25 * beta * {r} ** 2 + 1j * n * {theta})".format(
+        #     r="sqrt((omega * sqrt(m) * X) ** 2 + P ** 2 / m)",
+        #     theta="arctan2(P / sqrt(m), omega * sqrt(m) * X)"
         # )
-        # plt.plot(r, f)
-        # plt.show()
+        ###########################################################################################################
 
         quant_sys = self.quant_sys
 
@@ -188,7 +186,7 @@ class VisualizeHybrid:
         # propagate the wigner function
         self.img_Upsilon1.set_array(
             #self.quant_sys.Upsilon2.imag
-            quant_sys.get_classical_rho()[::1, ::1]
+            quant_sys.get_classical_rho()
         )
 
         # print(
@@ -207,10 +205,10 @@ class VisualizeHybrid:
         print("\n")
 
         self.img_Upsilon2.set_array(
-            quant_sys.Upsilon1.imag[::1, ::1]
+            quant_sys.Upsilon1.imag
         )
 
-        # quant_sys.propagate(10)
+        quant_sys.propagate(10)
 
         #avX1 = evaluate("sum(classical_rho * P)", local_dict=vars(self.quant_sys)) * self.quant_sys.dXdP
         #avX2 = self.quant_sys.classical_average("P")
