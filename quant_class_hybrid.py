@@ -266,6 +266,25 @@ class QCHybrid(object):
         self.code_expB_Upsilon1 = "({}) * Upsilon1_copy + ({}) * Upsilon2_copy".format(P11, P12).format(**Pb_params)
         self.code_expB_Upsilon2 = "({}) * Upsilon1_copy + ({}) * Upsilon2_copy".format(P21, P22).format(**Pb_params)
 
+        ################################## Generate code for Pmh = exp(-H) ################################
+
+        # parameters of the hamiltonian
+        h_params = dict(
+            c0="({} + {})".format(self.K, self.U),
+            c1="({})".format(self.f1),
+            c2="({})".format(self.f2),
+            c3="({})".format(self.f3),
+        )
+
+        self.code_exp_minus_H1 = "({}) * Upsilon1 + ({}) * Upsilon2".format(P11, P12).format(a=1.j, **h_params)
+        self.code_exp_minus_H2 = "({}) * Upsilon1 + ({}) * Upsilon2".format(P21, P22).format(a=1.j, **h_params)
+
+        ################################## Generate code for Pph = exp(+H) ################################
+
+        self.code_exp_plus_H1 = "where(real(abs(Upsilon1)) < 1e-9, 0, ({}) * Upsilon1) + where(real(abs(Upsilon2)) < 1e-9, 0, ({}) * Upsilon2)".format(P11, P12).format(a=-1.j, **h_params)
+        self.code_exp_plus_H2 = "where(real(abs(Upsilon1)) < 1e-9, 0, ({}) * Upsilon1) + where(real(abs(Upsilon2)) < 1e-9, 0, ({}) * Upsilon2)".format(P21, P22).format(a=-1.j, **h_params)
+        #self.code_exp_plus_H2 = "({}) * Upsilon1 + ({}) * Upsilon2".format(P21, P22).format(a=-1.j, **h_params)
+
         ########################################################################################
 
         # Call the initialization procedure
@@ -283,15 +302,6 @@ class QCHybrid(object):
         :param time_steps: number of self.dt time increments to make
         :return: self
         """
-        # pseudonyms
-        Upsilon1 = self.Upsilon1
-        Upsilon2 = self.Upsilon2
-
-        Upsilon1_copy = self.Upsilon1_copy
-        Upsilon2_copy = self.Upsilon2_copy
-
-        exp_diff_K = self.exp_diff_K
-
         for _ in range(time_steps):
 
             ############################################################################################
@@ -299,6 +309,14 @@ class QCHybrid(object):
             #   Single step propagation
             #
             ############################################################################################
+            # pseudonyms
+            Upsilon1 = self.Upsilon1
+            Upsilon2 = self.Upsilon2
+
+            Upsilon1_copy = self.Upsilon1_copy
+            Upsilon2_copy = self.Upsilon2_copy
+
+            exp_diff_K = self.exp_diff_K
 
             # make half a step in time
             self.t += 0.5 * self.dt
@@ -404,15 +422,8 @@ class QCHybrid(object):
 
             # Since the resulats of the previous step are saved in copies,
             # swap the references between the original and copies
-            Upsilon1, Upsilon1_copy = Upsilon1_copy, Upsilon1
-            Upsilon2, Upsilon2_copy = Upsilon2_copy, Upsilon2
-
-            # synchronize pseudonyms with originals
-            self.Upsilon1 = Upsilon1
-            self.Upsilon2 = Upsilon2
-
-            self.Upsilon1_copy = Upsilon1_copy
-            self.Upsilon2_copy = Upsilon2_copy
+            self.Upsilon1, self.Upsilon1_copy = self.Upsilon1_copy, self.Upsilon1
+            self.Upsilon2, self.Upsilon2_copy = self.Upsilon2_copy, self.Upsilon2
 
             # make half a step in time
             self.t += 0.5 * self.dt
@@ -692,6 +703,28 @@ class QCHybrid(object):
         self.transform_lambda2x(Upsilon1_copy, Upsilon)
 
         evaluate("(-1) ** (kX + kP) * Upsilon", global_dict=vars(self), out=Upsilon)
+
+    def exp_minus_H_Upsilon(self):
+        """
+        Calculate exp(-H) Upsilon and save the result in self.Upsilon
+        :return: None
+        """
+        evaluate(self.code_exp_minus_H1, local_dict=vars(self), out=self.Upsilon1_copy)
+        evaluate(self.code_exp_minus_H2, local_dict=vars(self), out=self.Upsilon2_copy)
+
+        self.Upsilon1, self.Upsilon1_copy = self.Upsilon1_copy, self.Upsilon1
+        self.Upsilon2, self.Upsilon2_copy = self.Upsilon2_copy, self.Upsilon2
+
+    def exp_plus_H_Upsilon(self):
+        """
+        Calculate exp(+H) Upsilon and save the result in self.Upsilon
+        :return: None
+        """
+        evaluate(self.code_exp_plus_H1, local_dict=vars(self), out=self.Upsilon1_copy)
+        evaluate(self.code_exp_plus_H2, local_dict=vars(self), out=self.Upsilon2_copy)
+
+        self.Upsilon1, self.Upsilon1_copy = self.Upsilon1_copy, self.Upsilon1
+        self.Upsilon2, self.Upsilon2_copy = self.Upsilon2_copy, self.Upsilon2
 
     def set_wavefunction(self, new_Upsilon1, new_Upsilon2):
         """
