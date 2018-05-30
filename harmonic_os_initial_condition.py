@@ -34,8 +34,8 @@ class VisualizeHybrid:
             extent=[self.quant_sys.X.min(), self.quant_sys.X.max(), self.quant_sys.P.min(), self.quant_sys.P.max()],
             origin='lower',
             cmap='seismic',
-            norm=WignerNormalize(vmin=-0.2, vmax=0.2)
-            #norm=WignerSymLogNorm(linthresh=1e-7, vmin=-0.01, vmax=0.1)
+            #norm=WignerNormalize(vmin=-0.1, vmax=0.1)
+            norm=WignerSymLogNorm(linthresh=1e-6, vmin=-0.01, vmax=0.1)
         )
 
         ax = fig.add_subplot(121)
@@ -69,21 +69,54 @@ class VisualizeHybrid:
             self.time = []
             self.hamiltonian_observable = (self.K + " + " + self.U, self.f1, self.f2, self.f3)
 
+            # initialize the copy of wavefunc
+            self.__Upsilon1 = np.empty_like(self.Upsilon1)
+            self.__Upsilon2 = np.empty_like(self.Upsilon2)
+
         def post_processing(self):
             self.time.append(self.t)
+
+            # # Make a copy of the current wave function before modulating it
+            # np.copyto(self.__Upsilon1, self.Upsilon1)
+            # np.copyto(self.__Upsilon2, self.Upsilon2)
+            #
+            # # modulate the wave function: Upsilon *= exp(+H)
+            # self.exp_plus_H_Upsilon()
+            #
+            # self.gaussian_filter(self.Upsilon1, 2., 2.)
+            # self.gaussian_filter(self.Upsilon2, 2., 2.)
+            #
+            # self.normalize()
+            #
+            # self.gaussian_filter(self.Upsilon1, 4., 4.)
+            # self.gaussian_filter(self.Upsilon2, 4., 4.)
+
+            # self.get_hybrid_D()
+            # self.gaussian_filter(self.D11, 2., 2.)
+
             self.energy.append(
                 self.hybrid_average(self.hamiltonian_observable)
             )
+
+            #
+            # np.copyto(self.Upsilon1, self.__Upsilon1)
+            # np.copyto(self.Upsilon2, self.__Upsilon2)
+
+            # modulate the wave function: Upsilon *= exp(-H)
+            # self.exp_minus_H_Upsilon()
+
 
         self.quant_sys = QCHybrid(
             t=0,
             dt=0.01,
 
-            X_gridDIM=4 * 256,
-            X_amplitude=20.,
+            X_gridDIM=2 * 256,
+            #X_amplitude=11.,
+            X_amplitude=11,
 
-            P_gridDIM=4 * 256,
-            P_amplitude=20.,
+            P_gridDIM=2 * 256,
+            #P_amplitude=10.,
+            P_amplitude=10,
 
             # Parameters of the harmonic oscillator
             omega=1,
@@ -91,29 +124,23 @@ class VisualizeHybrid:
             X0=0,
             beta=1, # the inverse temperature used in the initial condition
 
-            D=0,
+            D=0.000,
 
             # Parameters of the Hamiltonian
             K="P ** 2 / (2. * m)",
             diff_K="P / m",
-            #K="0.5 * P ** 2",
-            #diff_K="P",
 
-            U="0.5 * (omega * (X - X0)) ** 2",
+            U="0.5 * (omega * (X - X0)) ** 2 ",
             diff_U="omega ** 2 * (X - X0)",
-            #U="0.5 * X ** 2",
-            #diff_U="X",
 
-            alpha=0.0,
+            f1="0",
+            diff_f1="0",
 
-            f1="alpha * X ** 3",
-            diff_f1="alpha * 3 * X ** 2",
+            f2="0",
+            diff_f2="0",
 
-            f2="alpha * X",
-            diff_f2="alpha",
-
-            f3="alpha * X",
-            diff_f3="alpha",
+            f3="0",
+            diff_f3="0",
 
             # add facility to calculate the expectation value of energy
             post_initialization=post_initialization,
@@ -121,33 +148,15 @@ class VisualizeHybrid:
         )
 
         # The equilibrium stationary state corresponding to the classical thermal
-        # state with the inverse temperature beta
-        Upsilon = "exp(-beta * {r} ** 2 / 4. + 0.5j * {r} / omega * ({theta} * {r} - X0 * sin({theta})))".format(
-             r="sqrt((omega * sqrt(m) * (X - X0)) ** 2 + P ** 2 / m)",
-             theta="arctan2(omega * sqrt(m) * (X - X0), P / sqrt(m))"
+        # state for a harmonic oscillator with the inverse temperature beta
+        Upsilon = "1 / ({r} ** 2 + 1e-10) * sqrt(1. - (1. + 0.5 * beta * {r} ** 2) * exp(-0.5 * beta * {r} ** 2) )".format(
+            r="sqrt((omega * sqrt(m) * X) ** 2 + P ** 2 / m)",
+            theta="arctan2(P / sqrt(m), omega * sqrt(m) * X)"
         )
 
         quant_sys = self.quant_sys
 
         quant_sys.set_wavefunction(Upsilon, "0 * X + 0 * P")
-
-        self.initUpsilon1 = quant_sys.Upsilon1.copy()
-
-        quant_sys.Upsilon1 += self.initUpsilon1
-
-        # quant_sys.gaussian_filter(quant_sys.Upsilon1, 1.6, 0)
-        # quant_sys.normalize()
-        #
-        # final = quant_sys.Upsilon1.copy()
-        #
-        # quant_sys.rotate(final, 0.5 * np.pi)
-        #
-        # final /= final.sum()
-        # quant_sys.Upsilon1 /= quant_sys.Upsilon1.sum()
-        #
-        # final += quant_sys.Upsilon1
-        #
-        # quant_sys.set_wavefunction(final, "0 * X + 0 * P")
 
 
     def __call__(self, frame_num):
@@ -158,61 +167,16 @@ class VisualizeHybrid:
         """
         quant_sys = self.quant_sys
 
-        quant_sys.Upsilon1 -= self.initUpsilon1
-        quant_sys.propagate(10)
-        quant_sys.Upsilon1 += self.initUpsilon1
-
-        # self.quant_sys.get_hybrid_D()
-        #
-        # rho = np.array([
-        #     [self.quant_sys.D11.sum(), self.quant_sys.D12.sum()],
-        #     [self.quant_sys.D12.sum().conj(), self.quant_sys.D22.sum()]
-        # ])
-        # rho *= self.quant_sys.dXdP
-        #
-        # print(
-        #     np.linalg.norm(rho - self.quant_sys.get_quantum_rho())
-        # )
-
-
-        #print( np.linalg.eigvalsh(self.quant_sys.get_quantum_rho()) )
-        #print(self.quant_sys.quantum_rho.dot(self.quant_sys.quantum_rho).trace())
-        #print()
-
-
-
         # propagate the wigner function
         self.img_Upsilon1.set_array(
-            #self.quant_sys.Upsilon2.imag
             quant_sys.get_classical_rho()
         )
 
-        # print(
-        #     quant_sys.classical_average("X", False) - quant_sys.hybrid_average(("X", "0.", "0.", "0."), False)
-        # )
-        #
-        # sigma_x = ((1, 0), (0, -1))
-        #
-        # print(
-        #     quant_sys.quantum_average(sigma_x) - quant_sys.hybrid_average(("0", "0", "0", "1"), False)
-        #
-        # )
-
-        print(quant_sys.classical_rho.sum() * quant_sys.dXdP)
-
-        print("\n")
-
         self.img_Upsilon2.set_array(
-            quant_sys.Upsilon1.imag
+            quant_sys.Upsilon1.real
         )
 
-        #avX1 = evaluate("sum(classical_rho * P)", local_dict=vars(self.quant_sys)) * self.quant_sys.dXdP
-        #avX2 = self.quant_sys.classical_average("P")
-
-        #print(avX1 / avX2)
-
-        #print(self.quant_sys.classical_average("1"))
-        #print(self.quant_sys.classical_rho.sum() * self.quant_sys.dXdP)
+        quant_sys.propagate(20)
 
         return self.img_Upsilon1, self.img_Upsilon2
 
