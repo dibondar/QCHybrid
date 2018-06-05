@@ -169,15 +169,16 @@ class QCHybrid(object):
         from scipy.sparse import diags
 
         # generate the matrix corresponding to the second order finite difference operator
-        fdiff = diags([-1., 0, 1.], [-1, 0, 1], shape=self.Upsilon1.shape, dtype=self.Upsilon1.dtype, format='csr')
-        fdiff[0, -1] = -1.
-        fdiff[-1, 0] = 1.
-
-        # Diagonalize the matrix using FFT
+        fdiff = diags([-1., 0, 1.], [-1, 0, 1], shape=self.Upsilon1.shape, dtype=self.Upsilon1.dtype)
 
         # Convert the matrix to the dense array
         fdiff.toarray(out=self.Upsilon1)
 
+        # make matrix circular to be diagonalizable by FFT
+        self.Upsilon1[0, -1] = -1.
+        self.Upsilon1[-1, 0] = 1.
+
+        # Diagonalize the matrix using FFT
         self.transform_x2lambda(self.Upsilon1, self.Upsilon1_copy)
         self.transform_theta2p(self.Upsilon1_copy, self.Upsilon1)
 
@@ -281,9 +282,13 @@ class QCHybrid(object):
 
         ################################## Generate code for Pph = exp(+H) ################################
 
-        self.code_exp_plus_H1 = "where(real(abs(Upsilon1)) < 1e-9, 0, ({}) * Upsilon1) + where(real(abs(Upsilon2)) < 1e-9, 0, ({}) * Upsilon2)".format(P11, P12).format(a=-1.j, **h_params)
-        self.code_exp_plus_H2 = "where(real(abs(Upsilon1)) < 1e-9, 0, ({}) * Upsilon1) + where(real(abs(Upsilon2)) < 1e-9, 0, ({}) * Upsilon2)".format(P21, P22).format(a=-1.j, **h_params)
-        #self.code_exp_plus_H2 = "({}) * Upsilon1 + ({}) * Upsilon2".format(P21, P22).format(a=-1.j, **h_params)
+        self.code_exp_plus_H1 = "where(real(abs(Upsilon1)) < 1e-10, 0, ({}) * Upsilon1) + " \
+                                "where(real(abs(Upsilon2)) < 1e-10, 0, ({}) * Upsilon2)" \
+                                .format(P11, P12).format(a=-1.j, **h_params)
+
+        self.code_exp_plus_H2 = "where(real(abs(Upsilon1)) < 1e-10, 0, ({}) * Upsilon1) + " \
+                                "where(real(abs(Upsilon2)) < 1e-10, 0, ({}) * Upsilon2)" \
+                                .format(P21, P22).format(a=-1.j, **h_params)
 
         ########################################################################################
 
