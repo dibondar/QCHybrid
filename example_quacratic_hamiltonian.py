@@ -3,6 +3,7 @@ Testing the classical quantum wavefunction formalism for the case of harmonic os
 
 """
 from quant_class_hybrid import *
+from scipy.linalg import eigh
 
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
@@ -31,32 +32,35 @@ class VisualizeHybrid:
         from wigner_normalize import WignerNormalize, WignerSymLogNorm
 
         img_params = dict(
-            extent=[self.quant_sys.X.min(), self.quant_sys.X.max(), self.quant_sys.P.min(), self.quant_sys.P.max()],
             origin='lower',
             cmap='seismic',
-            norm=WignerNormalize(vmin=-0.1, vmax=0.1)
-            #norm=WignerSymLogNorm(linthresh=1e-6, vmin=-0.01, vmax=0.1)
+            norm=WignerNormalize(vmin=-0.01, vmax=0.05),
+            # norm=WignerSymLogNorm(linthresh=1e-5, vmin=-0.01, vmax=0.1),
         )
 
         ax = fig.add_subplot(121)
-        ax.set_title('Quantum classical hybrid, $\\Upsilon_1(x,p,t)$')
+        ax.set_title('Classical density, $\\rho(x,p,t)$')
 
         # generate empty plots
-        self.img_Upsilon1 = ax.imshow([[]], **img_params)
+        self.img_clasical_rho = ax.imshow(
+            [[]],
+            **img_params,
+            extent=[self.quant_sys.X.min(), self.quant_sys.X.max(), self.quant_sys.P.min(), self.quant_sys.P.max()],
+        )
 
         ax.set_xlabel('$x$ (a.u.)')
         ax.set_ylabel('$p$ (a.u.)')
 
         ax = fig.add_subplot(122)
-        ax.set_title('Quantum classical hybrid, $\\Upsilon_2(x,p,t)$')
+        ax.set_title('Real part quantum density matrix, $\Re\hat{\\rho}$')
 
         # generate empty plots
-        self.img_Upsilon2 = ax.imshow([[]], **img_params)
+        self.img_Upsilon2 = ax.imshow([[]], **img_params, extent=[1, 2, 1, 2])
 
-        ax.set_xlabel('$x$ (a.u.)')
-        ax.set_ylabel('$p$ (a.u.)')
+        #ax.set_xlabel('$x$ (a.u.)')
+        #ax.set_ylabel('$p$ (a.u.)')
 
-        self.fig.colorbar(self.img_Upsilon1)
+        #self.fig.colorbar(self.img_clasical_rho)
 
     def set_sys(self):
         """
@@ -65,8 +69,12 @@ class VisualizeHybrid:
         :return:
         """
         def post_initialization(self):
+
             self.energy = []
             self.time = []
+            self.q_entropy = []
+            self.q_purity = []
+
             self.hamiltonian_observable = (self.K + " + " + self.U, self.f1, self.f2, self.f3)
 
             # initialize the copy of wavefunc
@@ -85,27 +93,57 @@ class VisualizeHybrid:
 
             self.normalize()
 
+            # calculate the hybrid density matrix
             self.get_hybrid_D()
 
+            # remove noise in the hybrid density matrix
             ne.evaluate("where(X ** 2 + P ** 2 > 5. ** 2, 0., D11)", local_dict=vars(self), out=self.D11)
             ne.evaluate("where(X ** 2 + P ** 2 > 5. ** 2, 0., D12)", local_dict=vars(self), out=self.D12)
             ne.evaluate("where(X ** 2 + P ** 2 > 5. ** 2, 0., D22)", local_dict=vars(self), out=self.D22)
 
+            # renormalize the density matrix
             N = ne.evaluate("sum(D11 + D22)", local_dict=vars(self)) * self.dXdP
             self.D11 /= N
             self.D12 /= N
             self.D22 /= N
 
+            # save the current value of the energy
             self.energy.append(
                 self.hybrid_average(self.hamiltonian_observable, calculate=False)
             )
 
-            #
+            # calculate quantum density matrix
+            rho12 = self.D12.sum()
+            self.quantum_rho = np.array(
+                [[self.D11.sum(), rho12],
+                 [rho12.conj(), self.D22.sum()]]
+            )
+            self.quantum_rho /= self.quantum_rho.trace()
+
+            # calculate eigenvalues of the quantum density matrix
+            p = eigh(self.quantum_rho, eigvals_only=True)
+
+            # Check that quantum density matrix is positively defined
+            assert np.allclose(np.where(p < 0, p, 0), 0), \
+                "Quantum density matrix must be positively defined {}".format(p)
+
+            np.abs(p, out=p)
+
+            assert np.isclose(p.sum(), 1), "Trace of the quantum density matrix must be 1"
+
+            # save the entropy of the quantum density matrix
+            self.q_entropy.append(
+                -np.sum(p * np.log(p + 1e-100))
+            )
+
+            # save the purity of the quantum density matrix
+            self.q_purity.append(
+               np.sum(p ** 2)
+            )
+
+            # restore the original wave function
             np.copyto(self.Upsilon1, self.__Upsilon1)
             np.copyto(self.Upsilon2, self.__Upsilon2)
-
-            # modulate the wave function: Upsilon *= exp(-H)
-            # self.exp_minus_H_Upsilon()
 
 
         self.quant_sys = QCHybrid(
@@ -134,8 +172,8 @@ class VisualizeHybrid:
             U="0.5 * (omega * X) ** 2 ",
             diff_U="omega ** 2 * X",
 
-            f1="0.2 * X ** 2",
-            diff_f1="0.2 * 2 * X",
+            f1="0.1 * X ** 2",
+            diff_f1="0.1 * 2 * X",
 
             f2="0",
             diff_f2="0",
@@ -169,20 +207,19 @@ class VisualizeHybrid:
         :return: image objects
         """
         quant_sys = self.quant_sys
+        quant_sys.propagate(10)
 
         # propagate the wigner function
-        self.img_Upsilon1.set_array(
+        self.img_clasical_rho.set_array(
             (quant_sys.D22 + quant_sys.D11).real
             #quant_sys.get_classical_rho()
         )
 
         self.img_Upsilon2.set_array(
-            quant_sys.D12.real
+            quant_sys.quantum_rho.real
         )
 
-        quant_sys.propagate(10)
-
-        return self.img_Upsilon1, self.img_Upsilon2
+        return self.img_clasical_rho, self.img_Upsilon2
 
 
 #######################################################################################################
@@ -201,6 +238,8 @@ plt.show()
 quant_sys = visualizer.quant_sys
 quant_sys.energy = np.array(quant_sys.energy).real
 
+plt.subplot(311)
+plt.title("Energy")
 plt.plot(quant_sys.time, quant_sys.energy)
 plt.xlabel('$t$ (a.u.)')
 plt.ylabel('$\\langle \hat{H} \\rangle$')
@@ -210,5 +249,17 @@ print(
         100. * (1 - np.abs(quant_sys.energy).min() / np.abs(quant_sys.energy).max())
     )
 )
+
+plt.subplot(312)
+plt.title("Entropy of the quantum subsystem")
+plt.plot(quant_sys.time, quant_sys.q_entropy)
+plt.xlabel('$t$ (a.u.)')
+plt.ylabel('$-{\\rm Tr} \, (\hat{\\rho} \log\hat{\\rho}) $')
+
+plt.subplot(313)
+plt.title("Purity of the quantum subsystem")
+plt.plot(quant_sys.time, quant_sys.q_purity)
+plt.xlabel('$t$ (a.u.)')
+plt.ylabel('${\\rm Tr} \, (\hat{\\rho}^2) $')
 
 plt.show()
