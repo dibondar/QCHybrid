@@ -7,21 +7,28 @@ class CAnalyticQCHybrid(object):
 
     hbar = 1, m = 1, omega = 1, beta = 1/4, kT = 1/10000
     """
-    def __init__(self, p, q):
+    def __init__(self, p, q, kT):
         """
         Constructor
         :param p:
         :param q:
-        :return:
+        :param kT: temperature
+        :return: None
         """
         self.p = p
         self.q = q
 
         # extract the volume element in the phase space
         p = p.reshape(-1)
-        q = p.reshape(-1)
+        q = q.reshape(-1)
 
-        self.dqdp = (q[1] - q[0]) * (p[1] - p[0])
+        self.dq = q[1] - q[0]
+        self.dp = p[1] - p[0]
+
+        self.dqdp = self.dq * self.dp
+
+        # save the temperature
+        self.kT = kT
 
     def D11(self, t):
         """
@@ -31,6 +38,7 @@ class CAnalyticQCHybrid(object):
         """
         p = self.p
         q = self.q
+        kT = self.kT
 
         #############################################################################################
         #
@@ -38,100 +46,96 @@ class CAnalyticQCHybrid(object):
         #
         #############################################################################################
 
-        t1 = 0.1e1 / np.pi
-        t2 = q ** 2
-        t4 = p ** 2
-        t5 = 0.5e1 / 0.4e1 * t2 + t4
-        t6 = np.sqrt(5)
-        t7 = np.sqrt(4)
-        t8 = t7 * t6
+        t3 = np.sqrt(0.1e1 / np.pi * kT)
+        t4 = q ** 2
+        t6 = p ** 2
+        t7 = t4 / 4 + t6
+        t8 = np.sqrt(4)
         t11 = np.arctan2(q * t8 / 4, p)
-        t15 = -t11 + t7 * t6 * t / 4
-        t16 = np.cos(t15)
-        t17 = t16 ** 2
-        t18 = t17 * t5
-        t19 = np.sin(t15)
+        t14 = -t11 + t8 * t / 4
+        t15 = np.cos(t14)
+        t16 = t15 ** 2
+        t17 = t16 * t7
+        t19 = np.sin(t14)
         t20 = t19 ** 2
-        t21 = t20 * t5
-        t23 = t18 + 0.4e1 / 0.5e1 * t21
-        t24 = 0.1e1 / t23
-        t25 = 5000 * t18
-        t26 = 4000 * t21
-        t27 = 1 + t25 + t26
-        t29 = np.exp(-t25 - t26)
-        t32 = np.sqrt(-t29 * t27 + 1)
-        t35 = 0.3e1 / 0.4e1 * t2 + t4
-        t36 = np.sqrt(3)
-        t37 = t7 * t36
-        t40 = np.arctan2(q * t37 / 4, p)
-        t44 = -t40 + t7 * t36 * t / 4
-        t45 = np.cos(t44)
-        t46 = t45 ** 2
-        t47 = t46 * t35
-        t48 = np.sin(t44)
-        t49 = t48 ** 2
-        t50 = t49 * t35
-        t52 = t47 + 0.4e1 / 0.3e1 * t50
-        t53 = 0.1e1 / t52
-        t54 = 5000 * t47
-        t55 = 0.20000e5 / 0.3e1 * t50
-        t56 = 1 + t54 + t55
-        t58 = np.exp(-t54 - t55)
-        t61 = np.sqrt(-t58 * t56 + 1)
-        t64 = abs(t32 * t24 + t61 * t53)
-        t65 = t64 ** 2
-        t68 = np.sqrt(2)
-        t69 = np.sqrt(10000)
-        t70 = t69 * t68
-        t71 = np.sqrt(t1)
-        t79 = t24 * t32 * t71 * t70 / 20000 + t53 * t61 * t71 * t70 / 20000
-        t81 = t71 * t70
-        t82 = t23 ** 2
-        t83 = 0.1e1 / t82
-        t84 = t32.conjugate()
-        t85 = t84 * t83
-        t86 = t17 * q
-        t88 = t16 * t5
-        t91 = 0.1e1 / p * t7
-        t92 = 0.1e1 / t4
-        t93 = t92 * t2
-        t97 = t19 / (1 + 0.5e1 / 0.4e1 * t93)
-        t99 = t97 * t91 * t6 * t88
-        t101 = t20 * q
-        t103 = 0.5e1 / 0.2e1 * t86 + t99 / 10 + 2 * t101
-        t108 = 0.1e1 / t32 * t24
-        t112 = 12500 * t86 + 500 * t99 + 10000 * t101
-        t120 = (t29 * t112 * t27 - t29 * t112) * t108 * t81 / 40000
-        t121 = t52 ** 2
-        t122 = 0.1e1 / t121
-        t123 = t61.conjugate()
-        t124 = t123 * t122
-        t125 = t46 * q
-        t127 = t45 * t35
-        t132 = t48 / (1 + 0.3e1 / 0.4e1 * t93)
-        t134 = t132 * t91 * t36 * t127
-        t136 = t49 * q
-        t138 = 0.3e1 / 0.2e1 * t125 - t134 / 6 + 2 * t136
-        t143 = 0.1e1 / t61 * t53
-        t147 = 7500 * t125 - 0.2500e4 / 0.3e1 * t134 + 10000 * t136
-        t155 = (t58 * t147 * t56 - t58 * t147) * t143 * t81 / 40000
-        t159 = t17 * p
-        t162 = t92 * q
-        t164 = t97 * t162 * t8 * t88
-        t166 = t20 * p
-        t175 = 10000 * t159 - 500 * t164 + 8000 * t166
-        t184 = t46 * p
-        t188 = t132 * t162 * t37 * t127
-        t190 = t49 * p
-        t199 = 10000 * t184 + 0.2500e4 / 0.3e1 * t188 + 0.40000e5 / 0.3e1 * t190
-        t208 = -(2 * t159 - t164 / 10 + 0.8e1 / 0.5e1 * t166) * t85 * t81 / 20000 + (
-                    t29 * t175 * t27 - t29 * t175) * t108 * t81 / 40000 - (
-                           2 * t184 + t188 / 6 + 0.8e1 / 0.3e1 * t190) * t124 * t81 / 20000 + (
-                           t58 * t199 * t56 - t58 * t199) * t143 * t81 / 40000
-        t222 = np.real(
-            (-t103 * t85 * t81 / 20000 + t120 - t138 * t124 * t81 / 20000 + t155) * q * t79 + t208 * p * t79 + complex(
-                0, 2) * t208 * (t120 - t103 * t83 * t32 * t81 / 20000 + t155 - t138 * t122 * t61 * t81 / 20000))
-        D11 = t65 * t1 / 10000 + t222
+        t21 = t20 * t7
+        t24 = 0.1e1 / kT
+        t25 = t24 * (t17 / 2 + 2 * t21)
+        t26 = 1 + t25
+        t27 = np.exp(-t25)
+        t30 = np.sqrt(-t27 * t26 + 1)
+        t33 = t17 + 4 * t21
+        t34 = 0.1e1 / t33
+        t37 = 0.7e1 / 0.4e1 * t4 + t6
+        t38 = np.sqrt(7)
+        t39 = t8 * t38
+        t42 = np.arctan2(q * t39 / 4, p)
+        t46 = -t42 + t8 * t38 * t / 4
+        t47 = np.cos(t46)
+        t48 = t47 ** 2
+        t49 = t48 * t37
+        t51 = np.sin(t46)
+        t52 = t51 ** 2
+        t53 = t52 * t37
+        t56 = t24 * (t49 / 2 + 0.2e1 / 0.7e1 * t53)
+        t57 = 1 + t56
+        t58 = np.exp(-t56)
+        t61 = np.sqrt(-t58 * t57 + 1)
+        t64 = t49 + 0.4e1 / 0.7e1 * t53
+        t65 = 0.1e1 / t64
+        t68 = abs(t34 * t30 * t3 + t65 * t61 * t3)
+        t69 = t68 ** 2
+        t70 = np.sqrt(2)
+        t71 = t3 * t70
+        t77 = t34 * t30 * t71 / 2 + t65 * t61 * t71 / 2
+        t79 = t33 ** 2
+        t80 = 0.1e1 / t79
+        t81 = t30.conjugate()
+        t82 = t81 * t80
+        t83 = t16 * q
+        t86 = t8 * t15 * t7
+        t87 = 0.1e1 / p
+        t88 = 0.1e1 / t6
+        t89 = t88 * t4
+        t92 = 0.1e1 / (1 + t89 / 4)
+        t95 = t19 * t92 * t87 * t86
+        t97 = t20 * q
+        t99 = t83 / 2 - 0.3e1 / 0.2e1 * t95 + 2 * t97
+        t104 = 0.1e1 / t30 * t34
+        t107 = t83 / 4 - 0.3e1 / 0.4e1 * t95 + t97
+        t111 = t27 * t24
+        t116 = (t111 * t107 * t26 - t27 * t24 * t107) * t104 * t71 / 4
+        t117 = t64 ** 2
+        t118 = 0.1e1 / t117
+        t119 = t61.conjugate()
+        t120 = t119 * t118
+        t121 = t48 * q
+        t123 = t47 * t37
+        t129 = t51 / (1 + 0.7e1 / 0.4e1 * t89)
+        t131 = t129 * t87 * t8 * t38 * t123
+        t133 = t52 * q
+        t135 = 0.7e1 / 0.2e1 * t121 + 0.3e1 / 0.14e2 * t131 + 2 * t133
+        t140 = 0.1e1 / t61 * t65
+        t143 = 0.7e1 / 0.4e1 * t121 + 0.3e1 / 0.28e2 * t131 + t133
+        t147 = t58 * t24
+        t152 = (t147 * t143 * t57 - t58 * t24 * t143) * t140 * t71 / 4
+        t156 = t16 * p
+        t158 = t88 * q
+        t161 = t19 * t92 * t158 * t86
+        t163 = t20 * p
+        t171 = t156 + 0.3e1 / 0.4e1 * t161 + 4 * t163
+        t180 = t48 * p
+        t184 = t129 * t158 * t39 * t123
+        t186 = t52 * p
+        t194 = t180 - 0.3e1 / 0.28e2 * t184 + 0.4e1 / 0.7e1 * t186
+        t203 = -(2 * t156 + 0.3e1 / 0.2e1 * t161 + 8 * t163) * t82 * t71 / 2 + (
+                    t111 * t171 * t26 - t27 * t24 * t171) * t104 * t71 / 4 - (
+                           2 * t180 - 0.3e1 / 0.14e2 * t184 + 0.8e1 / 0.7e1 * t186) * t120 * t71 / 2 + (
+                           t147 * t194 * t57 - t58 * t24 * t194) * t140 * t71 / 4
+        t217 = np.real((-t99 * t82 * t71 / 2 + t116 - t135 * t120 * t71 / 2 + t152) * q * t77 + t203 * p * t77 + complex(0,
+                                                                                                                    2) * t203 * (
+                              t116 - t99 * t80 * t30 * t71 / 2 + t152 - t135 * t118 * t61 * t71 / 2))
+        self._D11 = t69 + t217
 
         #############################################################################################
         #
@@ -139,7 +143,7 @@ class CAnalyticQCHybrid(object):
         #
         #############################################################################################
 
-        return D11
+        return self._D11
 
     def D12(self, t):
         """
@@ -149,6 +153,7 @@ class CAnalyticQCHybrid(object):
         """
         p = self.p
         q = self.q
+        kT = self.kT
 
         #############################################################################################
         #
@@ -157,103 +162,100 @@ class CAnalyticQCHybrid(object):
         #############################################################################################
 
         t1 = np.sqrt(2)
-        t2 = np.sqrt(10000)
-        t3 = t2 * t1
-        t5 = np.sqrt(0.1e1 / np.pi)
+        t4 = np.sqrt(0.1e1 / np.pi * kT)
+        t5 = t4 * t1
         t6 = q ** 2
         t8 = p ** 2
-        t9 = 0.5e1 / 0.4e1 * t6 + t8
-        t10 = np.sqrt(5)
-        t11 = np.sqrt(4)
-        t12 = t11 * t10
-        t15 = np.arctan2(q * t12 / 4, p)
-        t19 = -t15 + t11 * t10 * t / 4
-        t20 = np.cos(t19)
-        t21 = t20 ** 2
-        t22 = t21 * t9
-        t23 = 5000 * t22
-        t24 = np.sin(t19)
-        t25 = t24 ** 2
-        t26 = t25 * t9
-        t27 = 4000 * t26
-        t28 = 1 + t23 + t27
-        t30 = np.exp(-t23 - t27)
-        t33 = np.sqrt(-t30 * t28 + 1)
-        t36 = t22 + 0.4e1 / 0.5e1 * t26
-        t37 = 0.1e1 / t36
-        t39 = t37 * t33 * t5 * t3
-        t41 = 0.3e1 / 0.4e1 * t6 + t8
-        t42 = np.sqrt(3)
-        t43 = t11 * t42
-        t46 = np.arctan2(q * t43 / 4, p)
-        t50 = -t46 + t11 * t42 * t / 4
-        t51 = np.cos(t50)
-        t52 = t51 ** 2
-        t53 = t52 * t41
-        t54 = 5000 * t53
-        t55 = np.sin(t50)
-        t56 = t55 ** 2
-        t57 = t56 * t41
-        t58 = 0.20000e5 / 0.3e1 * t57
-        t59 = 1 + t54 + t58
-        t61 = np.exp(-t54 - t58)
-        t64 = np.sqrt(-t61 * t59 + 1)
-        t67 = t53 + 0.4e1 / 0.3e1 * t57
-        t68 = 0.1e1 / t67
-        t70 = t68 * t64 * t5 * t3
-        t72 = t39 / 20000 + t70 / 20000
-        t75 = (-t70 / 20000 + t39 / 20000).conjugate()
-        t78 = t5 * t3
-        t80 = 0.1e1 / t33 * t37
-        t81 = t21 * q
-        t83 = t20 * t9
-        t86 = 0.1e1 / p * t11
-        t87 = 0.1e1 / t8
-        t88 = t87 * t6
-        t92 = t24 / (1 + 0.5e1 / 0.4e1 * t88)
-        t94 = t92 * t86 * t10 * t83
-        t96 = t25 * q
-        t98 = 12500 * t81 + 500 * t94 + 10000 * t96
-        t106 = (t30 * t98 * t28 - t30 * t98) * t80 * t78 / 40000
-        t107 = t36 ** 2
-        t108 = 0.1e1 / t107
-        t109 = t108 * t33
-        t113 = 0.5e1 / 0.2e1 * t81 + t94 / 10 + 2 * t96
-        t118 = 0.1e1 / t64 * t68
-        t119 = t52 * q
-        t121 = t51 * t41
-        t126 = t55 / (1 + 0.3e1 / 0.4e1 * t88)
-        t128 = t126 * t86 * t42 * t121
-        t130 = t56 * q
-        t132 = 7500 * t119 - 0.2500e4 / 0.3e1 * t128 + 10000 * t130
-        t140 = (t61 * t132 * t59 - t61 * t132) * t118 * t78 / 40000
-        t141 = t67 ** 2
-        t142 = 0.1e1 / t141
-        t143 = t142 * t64
-        t147 = 0.3e1 / 0.2e1 * t119 - t128 / 6 + 2 * t130
-        t151 = t106 - t113 * t109 * t78 / 20000 + t140 - t147 * t143 * t78 / 20000
-        t152 = t64.conjugate()
-        t153 = t152 * t142
-        t154 = t52 * p
-        t157 = t87 * q
-        t159 = t126 * t157 * t43 * t121
-        t161 = t56 * p
-        t163 = 2 * t154 + t159 / 6 + 0.8e1 / 0.3e1 * t161
-        t170 = 10000 * t154 + 0.2500e4 / 0.3e1 * t159 + 0.40000e5 / 0.3e1 * t161
-        t178 = (t61 * t170 * t59 - t61 * t170) * t118 * t78 / 40000
-        t179 = t33.conjugate()
-        t180 = t179 * t108
-        t181 = t21 * p
-        t185 = t92 * t157 * t12 * t83
-        t187 = t25 * p
-        t189 = 2 * t181 - t185 / 10 + 0.8e1 / 0.5e1 * t187
-        t196 = 10000 * t181 - 500 * t185 + 8000 * t187
-        t204 = (t30 * t196 * t28 - t30 * t196) * t80 * t78 / 40000
-        t205 = t163 * t153 * t78 / 20000 - t178 - t189 * t180 * t78 / 20000 + t204
-        t213 = t147 * t153 * t78 / 20000 - t140 - t113 * t180 * t78 / 20000 + t106
-        t220 = t204 - t189 * t109 * t78 / 20000 + t178 - t163 * t143 * t78 / 20000
-        D12 = 2 * t75 * t72 + complex(0, 1) * (t205 * t151 - t220 * t213) + (t205 * p + t213 * q) * t72 / 2 + (
-                    t220 * p + t151 * q) * t75 / 2
+        t9 = t6 / 4 + t8
+        t10 = np.sqrt(4)
+        t13 = np.arctan2(q * t10 / 4, p)
+        t16 = -t13 + t10 * t / 4
+        t17 = np.cos(t16)
+        t18 = t17 ** 2
+        t19 = t18 * t9
+        t21 = np.sin(t16)
+        t22 = t21 ** 2
+        t23 = t22 * t9
+        t26 = 0.1e1 / kT
+        t27 = t26 * (t19 / 2 + 2 * t23)
+        t28 = 1 + t27
+        t29 = np.exp(-t27)
+        t32 = np.sqrt(-t29 * t28 + 1)
+        t34 = t19 + 4 * t23
+        t35 = 0.1e1 / t34
+        t37 = t35 * t32 * t5
+        t39 = 0.7e1 / 0.4e1 * t6 + t8
+        t40 = np.sqrt(7)
+        t41 = t10 * t40
+        t44 = np.arctan2(q * t41 / 4, p)
+        t48 = -t44 + t10 * t40 * t / 4
+        t49 = np.cos(t48)
+        t50 = t49 ** 2
+        t51 = t50 * t39
+        t53 = np.sin(t48)
+        t54 = t53 ** 2
+        t55 = t54 * t39
+        t58 = t26 * (t51 / 2 + 0.2e1 / 0.7e1 * t55)
+        t59 = 1 + t58
+        t60 = np.exp(-t58)
+        t63 = np.sqrt(-t60 * t59 + 1)
+        t65 = t51 + 0.4e1 / 0.7e1 * t55
+        t66 = 0.1e1 / t65
+        t68 = t66 * t63 * t5
+        t70 = t37 / 2 + t68 / 2
+        t73 = (t68 / 2 - t37 / 2).conjugate()
+        t77 = 0.1e1 / t32 * t35
+        t78 = t18 * q
+        t81 = t10 * t17 * t9
+        t82 = 0.1e1 / p
+        t83 = 0.1e1 / t8
+        t84 = t83 * t6
+        t87 = 0.1e1 / (1 + t84 / 4)
+        t90 = t21 * t87 * t82 * t81
+        t92 = t22 * q
+        t93 = t78 / 4 - 0.3e1 / 0.4e1 * t90 + t92
+        t97 = t29 * t26
+        t102 = (-t29 * t26 * t93 + t97 * t93 * t28) * t77 * t5 / 4
+        t103 = t34 ** 2
+        t104 = 0.1e1 / t103
+        t105 = t104 * t32
+        t109 = t78 / 2 - 0.3e1 / 0.2e1 * t90 + 2 * t92
+        t114 = 0.1e1 / t63 * t66
+        t115 = t50 * q
+        t117 = t49 * t39
+        t123 = t53 / (1 + 0.7e1 / 0.4e1 * t84)
+        t125 = t123 * t82 * t10 * t40 * t117
+        t127 = t54 * q
+        t128 = 0.7e1 / 0.4e1 * t115 + 0.3e1 / 0.28e2 * t125 + t127
+        t132 = t60 * t26
+        t137 = (t132 * t128 * t59 - t60 * t26 * t128) * t114 * t5 / 4
+        t138 = t65 ** 2
+        t139 = 0.1e1 / t138
+        t140 = t139 * t63
+        t144 = 0.7e1 / 0.2e1 * t115 + 0.3e1 / 0.14e2 * t125 + 2 * t127
+        t148 = t102 - t109 * t105 * t5 / 2 + t137 - t144 * t140 * t5 / 2
+        t149 = (t63).conjugate()
+        t150 = t149 * t139
+        t151 = t50 * p
+        t154 = t83 * q
+        t156 = t123 * t154 * t41 * t117
+        t158 = t54 * p
+        t160 = 2 * t151 - 0.3e1 / 0.14e2 * t156 + 0.8e1 / 0.7e1 * t158
+        t166 = t151 - 0.3e1 / 0.28e2 * t156 + 0.4e1 / 0.7e1 * t158
+        t174 = (t132 * t166 * t59 - t60 * t26 * t166) * t114 * t5 / 4
+        t175 = (t32).conjugate()
+        t176 = t175 * t104
+        t177 = t18 * p
+        t181 = t21 * t87 * t154 * t81
+        t183 = t22 * p
+        t185 = 2 * t177 + 0.3e1 / 0.2e1 * t181 + 8 * t183
+        t191 = t177 + 0.3e1 / 0.4e1 * t181 + 4 * t183
+        t199 = (-t29 * t26 * t191 + t97 * t191 * t28) * t77 * t5 / 4
+        t200 = -t160 * t150 * t5 / 2 + t174 + t185 * t176 * t5 / 2 - t199
+        t208 = -t144 * t150 * t5 / 2 + t137 + t109 * t176 * t5 / 2 - t102
+        t215 = t199 - t185 * t105 * t5 / 2 + t174 - t160 * t140 * t5 / 2
+        self._D12 = 2 * t73 * t70 + complex(0, 1) * (t200 * t148 - t215 * t208) + (t200 * p + t208 * q) * t70 / 2 + (
+                    t215 * p + t148 * q) * t73 / 2
 
         #############################################################################################
         #
@@ -261,7 +263,7 @@ class CAnalyticQCHybrid(object):
         #
         #############################################################################################
 
-        return D12
+        return self._D12
 
     def D22(self, t):
         """
@@ -271,6 +273,7 @@ class CAnalyticQCHybrid(object):
         """
         p = self.p
         q = self.q
+        kT = self.kT
 
         #############################################################################################
         #
@@ -278,101 +281,96 @@ class CAnalyticQCHybrid(object):
         #
         #############################################################################################
 
-        t1 = 0.1e1 / np.pi
-        t2 = q ** 2
-        t4 = p ** 2
-        t5 = 0.3e1 / 0.4e1 * t2 + t4
-        t6 = np.sqrt(3)
-        t7 = np.sqrt(4)
-        t8 = t7 * t6
-        t11 = np.arctan2(q * t8 / 4, p)
-        t15 = -t11 + t7 * t6 * t / 4
-        t16 = np.cos(t15)
-        t17 = t16 ** 2
-        t18 = t17 * t5
-        t19 = np.sin(t15)
-        t20 = t19 ** 2
-        t21 = t20 * t5
-        t23 = t18 + 0.4e1 / 0.3e1 * t21
-        t24 = 0.1e1 / t23
-        t25 = 5000 * t18
-        t26 = 0.20000e5 / 0.3e1 * t21
-        t27 = 1 + t25 + t26
-        t29 = np.exp(-t25 - t26)
-        t32 = np.sqrt(-t29 * t27 + 1)
-        t35 = 0.5e1 / 0.4e1 * t2 + t4
-        t36 = np.sqrt(5)
-        t37 = t7 * t36
-        t40 = np.arctan2(q * t37 / 4, p)
-        t44 = -t40 + t7 * t36 * t / 4
-        t45 = np.cos(t44)
-        t46 = t45 ** 2
-        t47 = t46 * t35
-        t48 = np.sin(t44)
-        t49 = t48 ** 2
-        t50 = t49 * t35
-        t52 = t47 + 0.4e1 / 0.5e1 * t50
-        t53 = 0.1e1 / t52
-        t54 = 5000 * t47
-        t55 = 4000 * t50
-        t56 = 1 + t54 + t55
-        t58 = np.exp(-t54 - t55)
-        t61 = np.sqrt(-t58 * t56 + 1)
-        t64 = abs(-t32 * t24 + t61 * t53)
-        t65 = t64 ** 2
-        t68 = np.sqrt(2)
-        t69 = np.sqrt(10000)
-        t70 = t69 * t68
-        t71 = np.sqrt(t1)
-        t79 = -t24 * t32 * t71 * t70 / 20000 + t53 * t61 * t71 * t70 / 20000
-        t81 = t71 * t70
-        t82 = t23 ** 2
-        t83 = 0.1e1 / t82
-        t84 = t32.conjugate()
-        t85 = t84 * t83
-        t86 = t17 * q
-        t88 = t16 * t5
-        t91 = 0.1e1 / p * t7
-        t92 = 0.1e1 / t4
-        t93 = t92 * t2
-        t97 = t19 / (1 + 0.3e1 / 0.4e1 * t93)
-        t99 = t97 * t91 * t6 * t88
-        t101 = t20 * q
-        t103 = 0.3e1 / 0.2e1 * t86 - t99 / 6 + 2 * t101
-        t108 = 0.1e1 / t32 * t24
-        t112 = 7500 * t86 - 0.2500e4 / 0.3e1 * t99 + 10000 * t101
-        t120 = (t29 * t112 * t27 - t29 * t112) * t108 * t81 / 40000
-        t121 = t52 ** 2
-        t122 = 0.1e1 / t121
-        t123 = t61.conjugate()
-        t124 = t123 * t122
-        t125 = t46 * q
-        t127 = t45 * t35
-        t132 = t48 / (1 + 0.5e1 / 0.4e1 * t93)
-        t134 = t132 * t91 * t36 * t127
-        t136 = t49 * q
-        t138 = 0.5e1 / 0.2e1 * t125 + t134 / 10 + 2 * t136
-        t143 = 0.1e1 / t61 * t53
-        t147 = 12500 * t125 + 500 * t134 + 10000 * t136
-        t155 = (t58 * t147 * t56 - t58 * t147) * t143 * t81 / 40000
-        t159 = t17 * p
-        t162 = t92 * q
-        t164 = t97 * t162 * t8 * t88
-        t166 = t20 * p
-        t175 = 10000 * t159 + 0.2500e4 / 0.3e1 * t164 + 0.40000e5 / 0.3e1 * t166
-        t184 = t46 * p
-        t188 = t132 * t162 * t37 * t127
-        t190 = t49 * p
-        t199 = 10000 * t184 - 500 * t188 + 8000 * t190
-        t208 = (2 * t159 + t164 / 6 + 0.8e1 / 0.3e1 * t166) * t85 * t81 / 20000 - (
-                    t29 * t175 * t27 - t29 * t175) * t108 * t81 / 40000 - (
-                           2 * t184 - t188 / 10 + 0.8e1 / 0.5e1 * t190) * t124 * t81 / 20000 + (
-                           t58 * t199 * t56 - t58 * t199) * t143 * t81 / 40000
-        t222 = np.real(
-            (t103 * t85 * t81 / 20000 - t120 - t138 * t124 * t81 / 20000 + t155) * q * t79 + t208 * p * t79 + complex(0,
-                                                                                                                      2) * t208 * (
-                        -t120 + t103 * t83 * t32 * t81 / 20000 + t155 - t138 * t122 * t61 * t81 / 20000))
-        D22 = t65 * t1 / 10000 + t222
+        t3 = np.sqrt(0.1e1 / np.pi * kT)
+        t4 = q ** 2
+        t6 = p ** 2
+        t7 = 0.7e1 / 0.4e1 * t4 + t6
+        t8 = np.sqrt(7)
+        t9 = np.sqrt(4)
+        t10 = t9 * t8
+        t13 = np.arctan2(q * t10 / 4, p)
+        t17 = -t13 + t9 * t8 * t / 4
+        t18 = np.cos(t17)
+        t19 = t18 ** 2
+        t20 = t19 * t7
+        t22 = np.sin(t17)
+        t23 = t22 ** 2
+        t24 = t23 * t7
+        t27 = 0.1e1 / kT
+        t28 = t27 * (t20 / 2 + 0.2e1 / 0.7e1 * t24)
+        t29 = 1 + t28
+        t30 = np.exp(-t28)
+        t33 = np.sqrt(-t30 * t29 + 1)
+        t36 = t20 + 0.4e1 / 0.7e1 * t24
+        t37 = 0.1e1 / t36
+        t40 = t4 / 4 + t6
+        t43 = np.arctan2(q * t9 / 4, p)
+        t46 = -t43 + t9 * t / 4
+        t47 = np.cos(t46)
+        t48 = t47 ** 2
+        t49 = t48 * t40
+        t51 = np.sin(t46)
+        t52 = t51 ** 2
+        t53 = t52 * t40
+        t56 = t27 * (t49 / 2 + 2 * t53)
+        t57 = 1 + t56
+        t58 = np.exp(-t56)
+        t61 = np.sqrt(-t58 * t57 + 1)
+        t64 = t49 + 4 * t53
+        t65 = 0.1e1 / t64
+        t68 = abs(t37 * t33 * t3 - t65 * t61 * t3)
+        t69 = t68 ** 2
+        t70 = np.sqrt(2)
+        t71 = t3 * t70
+        t77 = t37 * t33 * t71 / 2 - t65 * t61 * t71 / 2
+        t79 = t36 ** 2
+        t80 = 0.1e1 / t79
+        t81 = (t33).conjugate()
+        t82 = t81 * t80
+        t83 = t19 * q
+        t85 = t18 * t7
+        t87 = 0.1e1 / p
+        t89 = 0.1e1 / t6
+        t90 = t89 * t4
+        t94 = t22 / (1 + 0.7e1 / 0.4e1 * t90)
+        t96 = t94 * t87 * t9 * t8 * t85
+        t98 = t23 * q
+        t100 = 0.7e1 / 0.2e1 * t83 + 0.3e1 / 0.14e2 * t96 + 2 * t98
+        t105 = 0.1e1 / t33 * t37
+        t108 = 0.7e1 / 0.4e1 * t83 + 0.3e1 / 0.28e2 * t96 + t98
+        t112 = t30 * t27
+        t117 = (t112 * t108 * t29 - t30 * t27 * t108) * t105 * t71 / 4
+        t118 = t64 ** 2
+        t119 = 0.1e1 / t118
+        t120 = (t61).conjugate()
+        t121 = t120 * t119
+        t122 = t48 * q
+        t125 = t9 * t47 * t40
+        t128 = 0.1e1 / (1 + t90 / 4)
+        t131 = t51 * t128 * t87 * t125
+        t133 = t52 * q
+        t135 = t122 / 2 - 0.3e1 / 0.2e1 * t131 + 2 * t133
+        t140 = 0.1e1 / t61 * t65
+        t143 = t122 / 4 - 0.3e1 / 0.4e1 * t131 + t133
+        t147 = t58 * t27
+        t152 = (t147 * t143 * t57 - t58 * t27 * t143) * t140 * t71 / 4
+        t156 = t19 * p
+        t159 = t89 * q
+        t161 = t94 * t159 * t10 * t85
+        t163 = t23 * p
+        t171 = t156 - 0.3e1 / 0.28e2 * t161 + 0.4e1 / 0.7e1 * t163
+        t180 = t48 * p
+        t184 = t51 * t128 * t159 * t125
+        t186 = t52 * p
+        t194 = t180 + 0.3e1 / 0.4e1 * t184 + 4 * t186
+        t203 = -(2 * t156 - 0.3e1 / 0.14e2 * t161 + 0.8e1 / 0.7e1 * t163) * t82 * t71 / 2 + (
+                    t112 * t171 * t29 - t30 * t27 * t171) * t105 * t71 / 4 + (
+                           2 * t180 + 0.3e1 / 0.2e1 * t184 + 8 * t186) * t121 * t71 / 2 - (
+                           t147 * t194 * t57 - t58 * t27 * t194) * t140 * t71 / 4
+        t217 = np.real((-t100 * t82 * t71 / 2 + t117 + t135 * t121 * t71 / 2 - t152) * q * t77 + t203 * p * t77 + complex(0,
+                                                                                                                     2) * t203 * (
+                              t117 - t100 * t80 * t33 * t71 / 2 - t152 + t135 * t119 * t61 * t71 / 2))
+        self._D22 = t69 + t217
 
         #############################################################################################
         #
@@ -380,37 +378,48 @@ class CAnalyticQCHybrid(object):
         #
         #############################################################################################
 
-        return D22
+        return self._D22
 
-    def classical_density(self, t):
+    def calculate_D(self, t):
         """
-        Calculate the classical
+        Save the components of the hybrid density matrix.
+        The method must be called before all the other methods are called.
         :param t: time
+        :return: None
+        """
+        self.D11(t)
+        self.D12(t)
+        self.D22(t)
+
+    def classical_density(self):
+        """
+        Calculate the classical. This method must be called after self.calculate_D().
         :return: numpy.array
         """
-        rho = self.D11(t) + self.D22(t)
+        rho = self._D11 + self._D22
 
         # Check for the normalization condition
-        assert np.allclose(rho.sum() * self.dqdp, 1)
+        assert np.allclose(rho.sum() * self.dqdp, 1), "Classical density must be normalized."
 
         # Check for the positivity of the density
-        assert np.allclose(rho[rho < 0], 0)
+        assert np.allclose(rho[rho < 0], 0), "Classical density mus be nonnegative"
+
+        assert not np.isnan(rho).any(), "Classical density contains NaNs."
 
         # Make sure all values are real
-        assert isinstance(rho[0, 0],  np.float)
+        assert isinstance(rho[0, 0],  np.float), "Classical density must be real"
 
         return rho
 
-    def quantum_density(self, t):
+    def quantum_density(self):
         """
-        Get the quantum density matrix
-        :param t: time
+        Get the quantum density matrix. This method must be called after self.calculate_D().
         :return: 2x2 numpy.array
         """
-        d12 = self.D12(t).sum()
+        d12 = self._D12.sum()
 
         rho = np.array(
-            [[self.D11(t).sum(), d12], [d12.conjugate(), self.D22(t).sum()]]
+            [[self._D11.sum(), d12], [d12.conjugate(), self._D22.sum()]]
         )
 
         rho *= self.dqdp
@@ -424,13 +433,12 @@ class CAnalyticQCHybrid(object):
 
         return rho
 
-    def quantum_purity(self, t):
+    def quantum_purity(self):
         """
-        Get the purity of the quantum density matrix
-        :param t: time
+        Get the purity of the quantum density matrix. This method must be called after self.calculate_D().
         :return: float
         """
-        rho = self.quantum_density(t)
+        rho = self.quantum_density()
 
         return rho.dot(rho).trace().real
 
@@ -444,7 +452,11 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
     from wigner_normalize import WignerNormalize, WignerSymLogNorm
-    from matplotlib.animation import FuncAnimation, writers
+    from matplotlib.animation import FuncAnimation
+    from mpl_toolkits.mplot3d import Axes3D
+
+    # Bloch sphere drawing tool
+    from qutip import Bloch, Qobj
 
     ########################################################################################################
     #
@@ -464,10 +476,10 @@ if __name__ == '__main__':
             #
             #################################################################
 
-            p = np.linspace(-0.1, 0.1, 500)[:, np.newaxis]
-            q = np.linspace(-0.1, 0.1, 500)[np.newaxis, :]
+            p = np.linspace(-0.2, 0.2, 400)[:, np.newaxis]
+            q = np.linspace(-0.2, 0.2, 400)[np.newaxis, :]
 
-            self.hybrid = CAnalyticQCHybrid(p, q)
+            self.hybrid = CAnalyticQCHybrid(p, q, kT=1e-5)
 
             img_params = dict(
                 extent=[q.min(), q.max(), p.min(), p.max()],
@@ -485,25 +497,40 @@ if __name__ == '__main__':
 
             self.fig = fig
 
-            self.ax = fig.add_subplot(121)
-            self.ax.set_title('Classical density for quantum classical hybrid')
+            self.fig.suptitle(
+                "Quantum-classical hybrid $m=1$, $\omega=1$, $\\beta=3/4$, $kT={:.1e}$ (a.u.) (a.u.)".format(self.hybrid.kT)
+            )
+
+            self.ax = fig.add_subplot(221)
+            self.ax.set_title('Classical density')
 
             # generate empty plots
             self.img_classical_density = self.ax.imshow([[0]], **img_params)
 
-            self.ax.set_xlabel('$x$ (a.u.)')
+            self.ax.set_xlabel('$q$ (a.u.)')
             self.ax.set_ylabel('$p$ (a.u.)')
 
-            ax = fig.add_subplot(122)
+            ax = fig.add_subplot(222)
 
             ax.set_title('Quantum purity')
-            self.quantum_purity_plot, = ax.plot([0., 40], [1, 0.96])
+            self.quantum_purity_plot, = ax.plot([0., 40], [1, 0.5])
             ax.set_xlabel('time (a.u.)')
             ax.set_ylabel("quantum purity")
 
             self.time = []
             self.qpurity = []
 
+            ax = fig.add_subplot(223)
+
+            ax.set_title("Classical coordinate distribution")
+            self.c_coordinate_distribution, = ax.semilogy([self.hybrid.q.min(), self.hybrid.q.max()], [1e-2, 10.])
+            ax.set_xlabel('$q$ (a.u.)')
+            ax.set_ylabel('Probability density')
+
+            ax = fig.add_subplot(224, projection='3d')
+
+            self.bloch = Bloch(axes=ax)
+            self.bloch.make_sphere()
 
         def __call__(self, frame_num):
             """
@@ -512,29 +539,47 @@ if __name__ == '__main__':
             :return: image objects
             """
             # convert the frame number to time
-            t = 0.1 * (frame_num)
+            t = 0.1 * frame_num
+
+            # calculate the hybrid density matrix
+            self.hybrid.calculate_D(t)
 
             # plot the classical density
-            self.img_classical_density.set_array(
-                self.hybrid.classical_density(t)
-            )
-            self.ax.set_title('Classical density for quantum classical hybrid\n $t = {:.1f}$ (a.u.)'.format(t))
+            c_rho = self.hybrid.classical_density()
+
+            self.img_classical_density.set_array(c_rho)
+            self.ax.set_title('Classical density \n $t = {:.1f}$ (a.u.)'.format(t))
+
+            # plot the coordinate distribution for the classical density
+            coordinate_marginal = c_rho.sum(axis=0)
+            coordinate_marginal *= self.hybrid.dp
+
+            self.c_coordinate_distribution.set_data(self.hybrid.q.reshape(-1), coordinate_marginal)
 
             # plot quantum purity
             self.time.append(t)
-            self.qpurity.append(self.hybrid.quantum_purity(t))
+            self.qpurity.append(self.hybrid.quantum_purity())
 
             self.quantum_purity_plot.set_data(self.time, self.qpurity)
 
-            return self.img_classical_density,
+            # plot Bloch vector
+            self.bloch.clear()
+            self.bloch.add_states(
+                Qobj(self.hybrid.quantum_density())
+            )
+
+            self.bloch.make_sphere()
+
+            return self.img_classical_density, self.quantum_purity_plot, self.bloch,
 
 
     fig = plt.gcf()
+    fig.set_size_inches(10, 10)
     visualizer = CVisualizeAnim(fig)
     animation = FuncAnimation(
-        fig, visualizer, frames=np.arange(400), repeat=True, blit=True
+        fig, visualizer, frames=np.arange(400), repeat=True, # blit=True
     )
-    plt.show()
+    # plt.show()
 
     # If you want to make a movie, comment "plt.show()" out and uncomment the lines bellow
 
@@ -542,7 +587,7 @@ if __name__ == '__main__':
     # writer = writers['mencoder'](fps=10, metadata=dict(artist='a good student'), bitrate=-1)
 
     # Save animation into the file
-    # animation.save('classical_density.mp4', writer=writer)
+    animation.save('hybrid_animation.mp4')
 
     #######################################################################################################
 
