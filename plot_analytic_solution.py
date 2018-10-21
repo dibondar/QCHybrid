@@ -385,11 +385,12 @@ class CAnalyticQCHybrid(object):
         Save the components of the hybrid density matrix.
         The method must be called before all the other methods are called.
         :param t: time
-        :return: None
+        :return: self
         """
         self.D11(t)
         self.D12(t)
         self.D22(t)
+        return self
 
     def classical_density(self):
         """
