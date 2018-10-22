@@ -5,8 +5,7 @@ from plot_analytic_solution import CAnalyticQCHybrid
 from wigner_normalize import WignerNormalize, WignerSymLogNorm
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from qutip import Bloch
+from matplotlib import patches
 
 # Initialize the hybrid solution
 p = np.linspace(-0.1, 0.1, 500)[:, np.newaxis]
@@ -40,7 +39,7 @@ quantum_state_points = np.array(quantum_state_points)
 
 # Calculate quantities to be plotted
 classical_densities = dict()
-quantum_rho = dict()
+quantum_rho = []
 
 time_slices = [("(a)", 0), ("(b)", 2.4), ("(c)", 5.7), ("(d)", 8.8)]
 purity_time_slices = []
@@ -122,44 +121,73 @@ plt.show()
 #
 #########################################################################
 
-ax = plt.subplot(111, projection='3d')
-
-bloch_sphere = Bloch(axes=ax) #(view=[90.,0.],)
-bloch_sphere.ylpos = [0.3, -1.2]
-bloch_sphere.xlpos = [0.3, -1.07]
-#bloch_sphere.zlpos = [1.07, -1.07]
-bloch_sphere.zlabel = ['', '']
-# bloch_sphere.size = [600, 600]
-# bloch_sphere.point_size
-
-bloch_sphere.point_color = ['k',]
-
-bloch_sphere.add_points(
-    np.array(list(quantum_rho.values())).T
-)
-
-# # plot the trajectory bloch vector traces
-start_point = quantum_state_points[0]
+# ax = plt.subplot(111, projection='3d')
+#
+# bloch_sphere = Bloch(axes=ax) #(view=[90.,0.],)
+# bloch_sphere.ylpos = [0.3, -1.2]
+# bloch_sphere.xlpos = [0.3, -1.07]
+# #bloch_sphere.zlpos = [1.07, -1.07]
+# bloch_sphere.zlabel = ['', '']
+# # bloch_sphere.size = [600, 600]
+# # bloch_sphere.point_size
+#
+# bloch_sphere.point_color = ['k',]
+#
+# bloch_sphere.add_points(
+#     np.array(list(quantum_rho.values())).T
+# )
+#
+# # # plot the trajectory bloch vector traces
+# start_point = quantum_state_points[0]
+#
+# colouring = np.linspace(0, 1, len(quantum_state_points)- 1)
+#
+# for end_point, color_code in zip(quantum_state_points[1:], colouring):
+#     # following the convention in the Bloch source code
+#     ax.plot(
+#         (start_point[1], end_point[1]),
+#         (-start_point[0], -end_point[0]),
+#         (start_point[2], end_point[2]),
+#         alpha=1., zdir='z',
+#         color=plt.cm.viridis(color_code),
+#         linewidth=1.
+#     )
+#     start_point = end_point
+# #
+# #
+# # for label, rho in quantum_rho.items():
+# #     bloch_sphere.add_annotation(rho, label)
+#
+# bloch_sphere.show()
+# plt.show()
 
 colouring = np.linspace(0, 1, len(quantum_state_points)- 1)
 
+# plot the trajectory bloch vector traces
+start_point = quantum_state_points[0]
+
 for end_point, color_code in zip(quantum_state_points[1:], colouring):
-    # following the convention in the Bloch source code
-    ax.plot(
+    plt.plot(
         (start_point[1], end_point[1]),
-        (-start_point[0], -end_point[0]),
         (start_point[2], end_point[2]),
-        alpha=1., zdir='z',
         color=plt.cm.viridis(color_code),
-        linewidth=1.
     )
     start_point = end_point
-#
-#
-# for label, rho in quantum_rho.items():
-#     bloch_sphere.add_annotation(rho, label)
 
-bloch_sphere.show()
+# add points where the classical densities where plotted
+plt.plot(
+    *np.array(list(quantum_rho.values())).T[1:],
+    'ok', markersize=5,
+)
+
+# display the arch of Bloch sphere
+plt.gca().add_patch(
+    patches.Arc((0., 0.), 2., 2., theta1=0., theta2=180., fill=False, linestyle='--')
+)
+
+plt.xlabel('y axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_2 \hat{\\rho}(t) \\right)$')
+plt.ylabel('z axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_3 \hat{\\rho}(t) \\right)$')
+
 plt.show()
 
 #########################################################################
