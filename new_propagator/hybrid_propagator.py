@@ -28,7 +28,7 @@ def get_chebyshev_list(x:np.array, chebyshev0:np.array, chebyshev1:np.array, n_b
     return chebyshev_list
 
 
-def enumerate_previous_and_next(x:iter):
+def enumerate_previous_and_next(x: iter):
     """
     Generator to yield (0, 0., x[1]) at the first call, (1, x[0], x[2]) at the second etc.
     :param x: iterable
@@ -153,12 +153,18 @@ class CHybridProp(object):
             self.q_diff_q_upsilon2 = self.upsilon2.copy()
             self.p_diff_p_upsilon2 = self.upsilon2.copy()
 
-    def get_upsilon(self, q:np.array, p:np.array) -> (np.array, np.array):
+            self.D11 = self.upsilon1.copy()
+            self.D12 = self.D11.copy()
+            self.D22 = self.D11.copy()
+
+            self.classical_rho = np.zeros_like(self.D11, dtype=np.float)
+
+    def get_upsilon(self, q: np.array, p: np.array) -> object:
         """
         Evaluate the Hybrid function at specified phase space points.
         :param q: coordinate grid
         :param p: momentum grid
-        :return: upsilon1, upsilon2
+        :return: self
         """
         self.save_chebyshev(q, p)
 
@@ -171,20 +177,20 @@ class CHybridProp(object):
         for n, Tq in enumerate(self.chebyshev_t_q):
             for m, Tp in enumerate(self.chebyshev_t_p):
 
-                c1 = self.upsilon1_coeff[n, m]
-                evaluate("upsilon1 + c1 * Tq * Tp", out=upsilon1)
+                c = self.upsilon1_coeff[n, m]
+                evaluate("upsilon1 + c * Tq * Tp", out=upsilon1)
 
-                c2 = self.upsilon2_coeff[n, m]
-                evaluate("upsilon2 + c2 * Tq * Tp", out=upsilon2)
+                c = self.upsilon2_coeff[n, m]
+                evaluate("upsilon2 + c * Tq * Tp", out=upsilon2)
 
-        return upsilon1, upsilon2
+        return self
 
-    def get_diff_p_upsilon(self, q: np.array, p: np.array) -> (np.array, np.array):
+    def get_diff_p_upsilon(self, q: np.array, p: np.array) -> object:
         """
         Evaluate the momentum (p) derivatives of the Hybrid function at specified phase space points.
         :param q: coordinate grid
         :param p: momentum grid
-        :return: diff_p_upsilon1, diff_p_upsilon2
+        :return: self
         """
         self.save_chebyshev(q, p)
 
@@ -197,20 +203,20 @@ class CHybridProp(object):
         for n, Tq in enumerate(self.chebyshev_t_q):
             for m, Up in enumerate(self.chebyshev_u_p[:-1]):
 
-                c1 = self.upsilon1_coeff[n, m + 1] * (m + 1)
-                evaluate("diff_p_upsilon1 + c1 * Tq * Up", out=diff_p_upsilon1)
+                c = self.upsilon1_coeff[n, m + 1] * (m + 1)
+                evaluate("diff_p_upsilon1 + c * Tq * Up", out=diff_p_upsilon1)
 
-                c2 = self.upsilon2_coeff[n, m + 1] * (m + 1)
-                evaluate("diff_p_upsilon2 + c2 * Tq * Up", out=diff_p_upsilon2)
+                c = self.upsilon2_coeff[n, m + 1] * (m + 1)
+                evaluate("diff_p_upsilon2 + c * Tq * Up", out=diff_p_upsilon2)
 
-        return diff_p_upsilon1, diff_p_upsilon2
+        return self
 
-    def get_diff_q_upsilon(self, q : np.array, p : np.array) -> (np.array, np.array):
+    def get_diff_q_upsilon(self, q: np.array, p: np.array) -> object:
         """
         Evaluate the coordinate (q) derivatives of the Hybrid function at specified phase space points.
         :param q: coordinate grid
         :param p: momentum grid
-        :return: diff_q_upsilon1, diff_q_upsilon2
+        :return: self
         """
         self.save_chebyshev(q, p)
 
@@ -223,20 +229,20 @@ class CHybridProp(object):
         for n, Uq in enumerate(self.chebyshev_u_q[:-1]):
             for m, Tp in enumerate(self.chebyshev_t_p):
 
-                c1 = self.upsilon1_coeff[n + 1, m] * (n + 1)
-                evaluate("diff_q_upsilon1 + c1 * Uq * Tp", out=diff_q_upsilon1)
+                c = self.upsilon1_coeff[n + 1, m] * (n + 1)
+                evaluate("diff_q_upsilon1 + c * Uq * Tp", out=diff_q_upsilon1)
 
-                c2 = self.upsilon2_coeff[n + 1, m] * (n + 1)
-                evaluate("diff_q_upsilon2 + c2 * Uq * Tp", out=diff_q_upsilon2)
+                c = self.upsilon2_coeff[n + 1, m] * (n + 1)
+                evaluate("diff_q_upsilon2 + c * Uq * Tp", out=diff_q_upsilon2)
 
-        return diff_q_upsilon1, diff_q_upsilon2
+        return self
 
-    def get_q_diff_q_upsilon(self, q: np.array, p: np.array) -> (np.array, np.array):
+    def get_q_diff_q_upsilon(self, q: np.array, p: np.array) -> object:
         """
         Evaluate the coordinate (q) times derivatives w.r.t. q of the Hybrid function at specified phase space points.
         :param q: coordinate grid
         :param p: momentum grid
-        :return: q_diff_q_upsilon1, q_diff_q_upsilon2
+        :return: self
         """
         self.save_chebyshev(q, p)
 
@@ -255,14 +261,14 @@ class CHybridProp(object):
                 c = self.upsilon2_coeff[n + 1, m] * (n + 1) / 2.
                 evaluate("q_diff_q_upsilon2 + c * (Uq_n_plus_1 + Uq_n_minus_1) * Tp", out=q_diff_q_upsilon2)
 
-        return q_diff_q_upsilon1, q_diff_q_upsilon2
+        return self
 
-    def get_p_diff_p_upsilon(self, q: np.array, p: np.array) -> (np.array, np.array):
+    def get_p_diff_p_upsilon(self, q: np.array, p: np.array) -> object:
         """
         Evaluate the momentum (p) times derivatives w.r.t. p of the Hybrid function at specified phase space points.
         :param q: coordinate grid
         :param p: momentum grid
-        :return: p_diff_p_upsilon1, p_diff_p_upsilon2
+        :return: self
         """
         self.save_chebyshev(q, p)
 
@@ -281,7 +287,62 @@ class CHybridProp(object):
                 c = self.upsilon2_coeff[n, m + 1] * (m + 1) / 2.
                 evaluate("p_diff_p_upsilon2 + c * (Up_m_plus_1 + Up_m_minus_1) * Tq", out=p_diff_p_upsilon2)
 
-        return p_diff_p_upsilon1, p_diff_p_upsilon2
+        return self
+
+    def get_d(self, q: np.array, p: np.array) -> object:
+        """
+        Calculate the hybrid density matrix
+        :param q: coordinate grid
+        :param p: momentum grid
+        :return: self
+        """
+        self.get_upsilon(q, p)
+
+        self.get_diff_p_upsilon(q, p)
+        self.get_diff_q_upsilon(q, p)
+
+        self.get_q_diff_q_upsilon(q, p)
+        self.get_p_diff_p_upsilon(q, p)
+
+        evaluate(
+            "2. * abs(upsilon1) ** 2 + real("
+            " upsilon1 * conj(q_diff_q_upsilon1) + upsilon1 * conj(p_diff_p_upsilon1) "
+            " + 2j * diff_q_upsilon1 * conj(diff_p_upsilon1)"
+            ")",
+            local_dict=vars(self), out=self.D11
+        )
+
+        evaluate(
+            "2. * upsilon1 * conj(upsilon2)"
+            "+ 1.j * (diff_q_upsilon1 * conj(diff_p_upsilon2) - conj(diff_q_upsilon2) * diff_p_upsilon1)"
+            "+ 0.5 * upsilon1 * (conj(q_diff_q_upsilon2) + conj(p_diff_p_upsilon2))"
+            "+ 0.5 * conj(upsilon2) * (q_diff_q_upsilon1 + p_diff_p_upsilon1)",
+            local_dict=vars(self), out=self.D12
+        )
+
+        evaluate(
+            "2. * abs(upsilon2) ** 2 + real("
+            " upsilon2 * conj(q_diff_q_upsilon2) + upsilon2 * conj(p_diff_p_upsilon2) "
+            " + 2j * diff_q_upsilon2 * conj(diff_p_upsilon2)"
+            ")",
+            local_dict=vars(self), out=self.D22
+        )
+
+        return self
+
+    def get_classical_density(self, q: np.array, p: np.array) -> np.array:
+        """
+        Calculate and return the classical density
+        :param q: coordinate grid
+        :param p: momentum grid
+        :return: classical density (self.classical_rho)
+        """
+        self.get_d(q, p)
+
+        np.add(self.D11.real, self.D22.real, out=self.classical_rho)
+
+        return self.classical_rho
+
 
 if __name__ == '__main__':
 
@@ -291,45 +352,54 @@ if __name__ == '__main__':
     #
     ####################################################################################################################
 
+    # # use only 2 threads
+    # from numexpr import set_num_threads
+    # set_num_threads(2)
+
     import matplotlib.pyplot as plt
-    from matplotlib.colors import Normalize, SymLogNorm
+    from wigner_normalize import WignerSymLogNorm, WignerNormalize
 
     p = np.linspace(-1., 1, 500)[:, np.newaxis]
     q = np.linspace(-1., 1., 200)[np.newaxis, :]
 
-    prop = CHybridProp(n_basis_vect=50)
+    # inverse temperature in the initial condition given below
+    beta = 100
 
-    upsilon1_func = "exp(-4. * (p - 0.01) ** 2 -10. * (q - 0.6) ** 2)"
-    exact = evaluate(
-        "-8. * p * (p - 0.01) * exp(-4. * (p - 0.01) ** 2 -10. * (q - 0.6) ** 2)"
+    # The equilibrium stationary state corresponding to the classical thermal
+    # state for a harmonic oscillator with the inverse temperature beta
+    Upsilon = "1 / ({r} ** 2) * sqrt(1. - (1. + 0.5 * beta * {r} ** 2) * exp(-0.5 * beta * {r} ** 2) )".format(
+        r="sqrt(q ** 2 + p ** 2)",
+        theta="arctan2(p, q)"
     )
 
-    prop.set_upsilon(func_upsilon2 = upsilon1_func)
-    #prop.set_upsilon(upsilon1_func)
+    exact_rho = evaluate("exp(-0.5 * beta * (p ** 2 + q ** 2))")
 
-    upsilon1, upsilon2 = prop.get_p_diff_p_upsilon(q, p)
-
-    e = np.abs(upsilon2 - exact)
+    prop = CHybridProp(n_basis_vect=150).set_upsilon(func_upsilon2 = Upsilon)
+    # prop = CHybridProp(n_basis_vect=150).set_upsilon(Upsilon)
 
     img_param = dict(
         extent=[q.min(), q.max(), p.min(), p.max()],
         origin='lower',
-        cmap=plt.cm.jet
-        #norm=SymLogNorm(linthresh=1e-6, vmin=-0.01, vmax=1.2)
+        cmap='seismic',
+        norm=WignerSymLogNorm(linthresh=1e-10)
     )
+
+    rho = prop.get_classical_density(q, p)
 
     plt.subplot(121)
     plt.title("Fitted function")
 
-    plt.imshow(upsilon2.real, **img_param)
+    plt.imshow(rho, **img_param)
     plt.xlabel("$q$ (a.u.)")
     plt.ylabel("$p$ (a.u.)")
     plt.colorbar()
 
+    print(np.sum(rho < 0))
+
     plt.subplot(122)
     plt.title("Error")
 
-    plt.imshow(e.real, **img_param)
+    plt.imshow(np.abs(exact_rho / exact_rho.max() - rho / rho.max()), **img_param)
     plt.xlabel("$q$ (a.u.)")
     plt.ylabel("$p$ (a.u.)")
     plt.colorbar()
