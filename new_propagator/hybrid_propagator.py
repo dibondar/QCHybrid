@@ -1,9 +1,16 @@
 import numpy as np
 from numexpr import evaluate
 from scipy.fftpack import dctn
+from scipy.linalg import expm
+
+########################################################################################################################
+#
+#   miscellaneous functions used in the class below
+#
+########################################################################################################################
 
 
-def get_chebyshev_list(x:np.array, chebyshev0:np.array, chebyshev1:np.array, n_basis_vect:int) -> list:
+def get_chebyshev_list(x: np.array, chebyshev0: np.array, chebyshev1: np.array, n_basis_vect:int) -> list:
     """
     Depending on the value of chebyshev0 and chebyshve1, get [T_n(x) for n in range(n_basis_vect)] or
     [U_n(x) for n in range(n_basis_vect)] using the recurrence relations for the Chebyshev polynomials
@@ -27,29 +34,11 @@ def get_chebyshev_list(x:np.array, chebyshev0:np.array, chebyshev1:np.array, n_b
 
     return chebyshev_list
 
-
-def enumerate_previous_and_next(x: iter):
-    """
-    Generator to yield (0, 0., x[1]) at the first call, (1, x[0], x[2]) at the second etc.
-    :param x: iterable
-    :return: three elements
-    """
-    x = iter(x)
-    x_n_minus_1 = next(x)
-    x_n = next(x)
-
-    yield 0, 0., x_n
-
-    n = 1
-
-    for x_n_plus_1 in x:
-
-        yield n, x_n_minus_1, x_n_plus_1
-
-        x_n_minus_1, x_n = x_n, x_n_plus_1
-
-        n += 1
-
+########################################################################################################################
+#
+#   main class declaration
+#
+########################################################################################################################
 
 class CHybridProp(object):
     """
@@ -58,22 +47,163 @@ class CHybridProp(object):
         upsilon1 = \sum_{n,m=1}^{n_basis_vect - 1} upsilon1_coeff[n, m] T[n](q)T[m](p)
 
     """
-    def __init__(self, *, n_basis_vect:int = 20):
+    def __init__(self, *, n_basis_vect: int = 20, dt: float = 0.01,
+                 h: str = "0. * p + 0. * q", diff_q_h: str = "0. * p + 0. * q",
+                 diff_p_h: str = "0. * p + 0. * q", f1: str = "0. * q", f2: str = "0. * q", f3: str = "0. * q",
+                 diff_q_f1: str = "0. * q", diff_q_f2: str = "0. * q", diff_q_f3: str = "0. * q",):
         """
         :param n_basis_vect: the number of the Chebyshev polynomials to use
-        :param p: the momentum
+        :param dt: the time increment
+        :param h: the hamiltonian - a string to be evaluated by numexpr representing a function of q and p
+        :param diff_q_h: the coordinate derivative of the hamiltonian - a string to be evaluated by numexpr
+        :param diff_p_h: the momentum derivative of the hamiltonian - a string to be evaluated by numexpr
+        :param f1: the quantum classical coupling - a string to be evaluated by numexpr
+        :param diff_q_f1: the derivative of the quantum classical coupling - a string to be evaluated by numexpr
+        :param f2: the quantum classical coupling - a string to be evaluated by numexpr
+        :param diff_q_f2: the derivative of the quantum classical coupling - a string to be evaluated by numexpr
+        :param f3: the quantum classical coupling - a string to be evaluated by numexpr
+        :param diff_q_f3: the derivative of the quantum classical coupling - a string to be evaluated by numexpr
         """
 
         # Saving parameters
         self.n_basis_vect = n_basis_vect
+        self.dt = dt
+
+        self.h = h
+        self.diff_q_h = diff_q_h
+        self.diff_p_h = diff_p_h
+
+        self.f1 = f1
+        self.f2 = f2
+        self.f3 = f3
+
+        self.diff_q_f1 = diff_q_f1
+        self.diff_q_f2 = diff_q_f2
+        self.diff_q_f3 = diff_q_f3
+
+        ################################################################################################################
 
         # allocate the array of coefficients for hybrid wavefunctions
-        self.upsilon1_coeff = np.zeros((self.n_basis_vect, self.n_basis_vect), dtype=np.complex)
-        self.upsilon2_coeff = self.upsilon1_coeff.copy()
+
+        # make sure that both components of the wavefunction lye in one continuous memory block
+        # this is convenient for self.propagate
+        self._flatten_upsilon = np.zeros(2 * self.n_basis_vect ** 2, dtype=np.complex)
+
+        self.upsilon1_coeff = self._flatten_upsilon[:self.n_basis_vect**2].reshape(self.n_basis_vect, self.n_basis_vect)
+        self.upsilon2_coeff = self._flatten_upsilon[self.n_basis_vect**2:].reshape(self.n_basis_vect, self.n_basis_vect)
+
+        # a copy used in self.propagate
+        self._flatten_upsilon_copy = self._flatten_upsilon.copy()
+
+        ################################################################################################################
 
         # variables for pre-calculating Chebyshev polynomials
         self._p = None
         self._q = None
+
+        # generate grid points for computing matrix elements and expansion
+        chebyshev_zeros = np.cos(np.pi * (np.arange(self.n_basis_vect) + 0.5) / self.n_basis_vect)
+        self.comp_p = chebyshev_zeros[np.newaxis, :]
+        self.comp_q = chebyshev_zeros[:, np.newaxis]
+
+        # save the liouvillian matrix
+        self.get_liouvillian_matrix()
+        # self.propagator = expm(-self.dt * 1j * self.liouvillian)
+
+    def get_liouvillian_matrix(self):
+        """
+        :return:
+        """
+        p = self.comp_p
+        q = self.comp_q
+
+        self.save_chebyshev(q, p)
+
+        # save separately the derivatives of the CHebyshev t polynomials
+        diff_chebyshev_t_p = [0.,] + [(n + 1) * Up for n, Up in enumerate(self.chebyshev_u_p[:-1])]
+        diff_chebyshev_t_q = [0.,] + [(n + 1) * Uq for n, Uq in enumerate(self.chebyshev_u_q[:-1])]
+
+        # evaluate different part of the Liouvillian
+        h = evaluate(self.h)
+        diff_q_h = evaluate(self.diff_q_h)
+        diff_p_h = evaluate(self.diff_p_h)
+
+        f1 = evaluate(self.f1)
+        f2 = evaluate(self.f2)
+        f3 = evaluate(self.f3)
+
+        diff_q_f1 = evaluate(self.diff_q_f1)
+        diff_q_f2 = evaluate(self.diff_q_f2)
+        diff_q_f3 = evaluate(self.diff_q_f3)
+
+        # Notations: upsilon1 = [Y, 0], upsilon2 = [0, Y]
+        #
+        L11 = []
+        L12 = []
+        L21 = []
+        L22 = []
+
+        for Tq, diff_Tq in zip(self.chebyshev_t_q, diff_chebyshev_t_q):
+           for Tp, diff_Tp in zip(self.chebyshev_t_p, diff_chebyshev_t_p):
+
+                ########################################################################################################
+                #
+                #   < upsilon1 | Liouvillian | upsilon1 >
+                #
+                ########################################################################################################
+
+                l11 = evaluate(
+                    "-1.j * diff_p_h * diff_Tq * Tp + 1.j * (diff_q_h + diff_q_f3) * Tq * diff_Tp"
+                    "-0.5 * (q * diff_q_h + p * diff_p_h - 2. * h + (q * diff_q_f3 - 2. * f3)) * Tq * Tp",
+                )
+                L11.append(self._get_coeffs(l11).reshape(-1))
+
+                ########################################################################################################
+                #
+                #   < upsilon1 | Liouvillian | upsilon2 >
+                #
+                ########################################################################################################
+
+                l12 = evaluate(
+                    "1j * (diff_q_f1 - 1j * diff_q_f2) * Tq * diff_Tp"
+                    "-0.5 * (q * diff_q_f1 - 2. * f1 - 1j * (q * diff_q_f2 - 2. * f2)) * Tq * Tp"
+                )
+                L12.append(self._get_coeffs(l12).reshape(-1))
+
+                ########################################################################################################
+                #
+                #   < upsilon2 | Liouvillian | upsilon1 >
+                #
+                ########################################################################################################
+
+                l21 = evaluate(
+                    "1j * (diff_q_f1 + 1j * diff_q_f2) * Tq * diff_Tp"
+                    "-0.5 * (q * diff_q_f1 - 2. * f1 + 1j * (q * diff_q_f2 - 2. * f2)) * Tq * Tp"
+                )
+                L21.append(self._get_coeffs(l21).reshape(-1))
+
+                ########################################################################################################
+                #
+                #   < upsilon2 | Liouvillian | upsilon2 >
+                #
+                ########################################################################################################
+
+                l22 = evaluate(
+                    "-1.j * diff_p_h * diff_Tq * Tp + 1.j * (diff_q_h - diff_q_f3) * Tq * diff_Tp"
+                    "-0.5 * (q * diff_q_h + p * diff_p_h - 2. * h - (q * diff_q_f3 - 2. * f3)) * Tq * Tp",
+                )
+                L22.append(self._get_coeffs(l22).reshape(-1))
+
+        # assemble the matrix of the Liouvillian from the blocks
+        # Note that transposition is crucial
+        L11 = np.array(L11).T
+        L12 = np.array(L12).T
+        L22 = np.array(L22).T
+        L21 = np.array(L21).T
+
+        self.liouvillian = np.block(
+            [[L11, L12], [L21, L22]]
+        )
 
     def set_upsilon(self, func_upsilon1:str = "0. * p + 0. * q", func_upsilon2:str = "0. * p + 0. * q") -> object:
         """
@@ -82,31 +212,46 @@ class CHybridProp(object):
         :param func_upsilon2: a string to be evaluated by numexpr representing a function of q and p
         :return: self
         """
-        # generate grid points
-        chebyshev_zeros = np.cos(np.pi * (np.arange(self.n_basis_vect) + 0.5) / self.n_basis_vect)
-        p = chebyshev_zeros[np.newaxis, :]
-        q = chebyshev_zeros[:, np.newaxis]
+        p = self.comp_p
+        q = self.comp_q
 
-        # using the cosine DFT to get the coefficients
-        # see, e.g., https://en.wikipedia.org/wiki/Chebyshev_polynomials#Example_1
         evaluate(func_upsilon1, out=self.upsilon1_coeff)
-        self.upsilon1_coeff = dctn(self.upsilon1_coeff, overwrite_x=True)
 
-        # fix normalization
-        self.upsilon1_coeff *= (1 / self.n_basis_vect) ** 2
-        self.upsilon1_coeff[0, :] /= 2.
-        self.upsilon1_coeff[:, 0] /= 2.
+        # make sure that that data remains in self.upsilon1_coeff
+        # it is important for fast propagation
+        self.upsilon1_coeff[:] = self._get_coeffs(self.upsilon1_coeff)
 
         # using the cosine DFT to get the coefficients
         evaluate(func_upsilon2, out=self.upsilon2_coeff)
-        self.upsilon2_coeff = dctn(self.upsilon2_coeff, overwrite_x=True)
 
-        # fix normalization
-        self.upsilon2_coeff *= (1 / self.n_basis_vect) ** 2
-        self.upsilon2_coeff[0, :] /= 2.
-        self.upsilon2_coeff[:, 0] /= 2.
+        # make sure that that data remains in self.upsilon2_coeff
+        # it is important for fast propagation
+        self.upsilon2_coeff[:] = self._get_coeffs(self.upsilon2_coeff)
 
         return self
+
+    def _get_coeffs(self, tmp: np.array) -> np.array:
+        """
+        using the cosine DFT to get the coefficients in the Chebyshev polynomial expansion
+        see, e.g., https://en.wikipedia.org/wiki/Chebyshev_polynomials#Example_1
+        :param tmp: array in p and q
+        :return: tmp
+        """
+        tmp = dctn(tmp, overwrite_x=True)
+
+        # fix normalization
+        tmp /= self.n_basis_vect ** 2
+        tmp[0, :] /= 2.
+        tmp[:, 0] /= 2.
+
+        ################################################################################################################
+        #
+        #   !!!!!!!!!!!!!!!!! careful !!!!!!!!!!!!!!!!!!
+        #
+        ################################################################################################################
+        tmp[np.abs(tmp) < 1e-12] = 0.
+
+        return tmp
 
     def save_chebyshev(self, q:np.array, p:np.array):
         """
@@ -136,7 +281,7 @@ class CHybridProp(object):
 
             ############################################################################################################
             #
-            #   Allocate the arrays
+            #   Allocate arrays
             #
             ############################################################################################################
 
@@ -145,13 +290,9 @@ class CHybridProp(object):
 
             self.diff_p_upsilon1 = self.upsilon1.copy()
             self.diff_q_upsilon1 = self.upsilon1.copy()
-            self.q_diff_q_upsilon1 = self.upsilon1.copy()
-            self.p_diff_p_upsilon1 = self.upsilon1.copy()
 
             self.diff_p_upsilon2 = self.upsilon2.copy()
             self.diff_q_upsilon2 = self.upsilon2.copy()
-            self.q_diff_q_upsilon2 = self.upsilon2.copy()
-            self.p_diff_p_upsilon2 = self.upsilon2.copy()
 
             self.D11 = self.upsilon1.copy()
             self.D12 = self.D11.copy()
@@ -237,58 +378,6 @@ class CHybridProp(object):
 
         return self
 
-    def get_q_diff_q_upsilon(self, q: np.array, p: np.array) -> object:
-        """
-        Evaluate the coordinate (q) times derivatives w.r.t. q of the Hybrid function at specified phase space points.
-        :param q: coordinate grid
-        :param p: momentum grid
-        :return: self
-        """
-        self.save_chebyshev(q, p)
-
-        q_diff_q_upsilon1 = self.q_diff_q_upsilon1
-        q_diff_q_upsilon1.fill(0.)
-
-        q_diff_q_upsilon2 = self.q_diff_q_upsilon2
-        q_diff_q_upsilon2.fill(0.)
-
-        for n, Uq_n_minus_1, Uq_n_plus_1 in enumerate_previous_and_next(self.chebyshev_u_q[:-1]):
-            for m, Tp in enumerate(self.chebyshev_t_p):
-
-                c = self.upsilon1_coeff[n + 1, m] * (n + 1) / 2.
-                evaluate("q_diff_q_upsilon1 + c * (Uq_n_plus_1 + Uq_n_minus_1) * Tp", out=q_diff_q_upsilon1)
-
-                c = self.upsilon2_coeff[n + 1, m] * (n + 1) / 2.
-                evaluate("q_diff_q_upsilon2 + c * (Uq_n_plus_1 + Uq_n_minus_1) * Tp", out=q_diff_q_upsilon2)
-
-        return self
-
-    def get_p_diff_p_upsilon(self, q: np.array, p: np.array) -> object:
-        """
-        Evaluate the momentum (p) times derivatives w.r.t. p of the Hybrid function at specified phase space points.
-        :param q: coordinate grid
-        :param p: momentum grid
-        :return: self
-        """
-        self.save_chebyshev(q, p)
-
-        p_diff_p_upsilon1 = self.p_diff_p_upsilon1
-        p_diff_p_upsilon1.fill(0.)
-
-        p_diff_p_upsilon2 = self.p_diff_p_upsilon2
-        p_diff_p_upsilon2.fill(0.)
-
-        for n, Tq in enumerate(self.chebyshev_t_q):
-            for m, Up_m_minus_1, Up_m_plus_1 in enumerate_previous_and_next(self.chebyshev_u_p[:-1]):
-
-                c = self.upsilon1_coeff[n, m + 1] * (m + 1) / 2.
-                evaluate("p_diff_p_upsilon1 + c * (Up_m_plus_1 + Up_m_minus_1) * Tq", out=p_diff_p_upsilon1)
-
-                c = self.upsilon2_coeff[n, m + 1] * (m + 1) / 2.
-                evaluate("p_diff_p_upsilon2 + c * (Up_m_plus_1 + Up_m_minus_1) * Tq", out=p_diff_p_upsilon2)
-
-        return self
-
     def get_d(self, q: np.array, p: np.array) -> object:
         """
         Calculate the hybrid density matrix
@@ -301,12 +390,9 @@ class CHybridProp(object):
         self.get_diff_p_upsilon(q, p)
         self.get_diff_q_upsilon(q, p)
 
-        self.get_q_diff_q_upsilon(q, p)
-        self.get_p_diff_p_upsilon(q, p)
-
         evaluate(
             "2. * abs(upsilon1) ** 2 + real("
-            " upsilon1 * conj(q_diff_q_upsilon1) + upsilon1 * conj(p_diff_p_upsilon1) "
+            " upsilon1 * conj(_q * diff_q_upsilon1) + upsilon1 * conj(_p * diff_p_upsilon1) "
             " + 2j * diff_q_upsilon1 * conj(diff_p_upsilon1)"
             ")",
             local_dict=vars(self), out=self.D11
@@ -315,14 +401,14 @@ class CHybridProp(object):
         evaluate(
             "2. * upsilon1 * conj(upsilon2)"
             "+ 1.j * (diff_q_upsilon1 * conj(diff_p_upsilon2) - conj(diff_q_upsilon2) * diff_p_upsilon1)"
-            "+ 0.5 * upsilon1 * (conj(q_diff_q_upsilon2) + conj(p_diff_p_upsilon2))"
-            "+ 0.5 * conj(upsilon2) * (q_diff_q_upsilon1 + p_diff_p_upsilon1)",
+            "+ 0.5 * upsilon1 * (conj(_q * diff_q_upsilon2) + conj(_p * diff_p_upsilon2))"
+            "+ 0.5 * conj(upsilon2) * (_q * diff_q_upsilon1 + _p * diff_p_upsilon1)",
             local_dict=vars(self), out=self.D12
         )
 
         evaluate(
             "2. * abs(upsilon2) ** 2 + real("
-            " upsilon2 * conj(q_diff_q_upsilon2) + upsilon2 * conj(p_diff_p_upsilon2) "
+            " upsilon2 * conj(_q * diff_q_upsilon2) + upsilon2 * conj(_p * diff_p_upsilon2) "
             " + 2j * diff_q_upsilon2 * conj(diff_p_upsilon2)"
             ")",
             local_dict=vars(self), out=self.D22
@@ -342,6 +428,50 @@ class CHybridProp(object):
         np.add(self.D11.real, self.D22.real, out=self.classical_rho)
 
         return self.classical_rho
+
+    def propagate(self, nsteps: int = 1) -> object:
+        """
+        Propagate the hybrid wavefunction by the time dt * nsteps.
+        :param nsteps: number of time steps taken
+        :return: self
+        """
+        upsilon_previous = self._flatten_upsilon
+        upsilon_next = self._flatten_upsilon_copy
+
+        for _ in range(nsteps):
+            self.propagator.dot(upsilon_previous, out=upsilon_next)
+            upsilon_previous, upsilon_next = upsilon_next, upsilon_previous
+
+        # note that we use upsilon_previous instead of upsilon_next because of the performed permutation
+        upsilon_next = upsilon_previous
+
+        # make sure that self._flatten_upsilon contains the wavefunction at the final time
+        if upsilon_next is not self._flatten_upsilon:
+            np.copyto(self._flatten_upsilon, upsilon_next)
+
+        return self
+
+    def apply_liouvillian(self, nsteps: int = 1) -> object:
+        """
+        Apply Liouvillian nstep times
+        :param nsteps:
+        :return: self
+        """
+        upsilon_previous = self._flatten_upsilon
+        upsilon_next = self._flatten_upsilon_copy
+
+        for _ in range(nsteps):
+            self.liouvillian.dot(upsilon_previous, out=upsilon_next)
+            upsilon_previous, upsilon_next = upsilon_next, upsilon_previous
+
+        # note that we use upsilon_previous instead of upsilon_next because of the performed permutation
+        upsilon_next = upsilon_previous
+
+        # make sure that self._flatten_upsilon contains the wavefunction at the final time
+        if upsilon_next is not self._flatten_upsilon:
+            np.copyto(self._flatten_upsilon, upsilon_next)
+
+        return self
 
 
 if __name__ == '__main__':
@@ -363,7 +493,7 @@ if __name__ == '__main__':
     q = np.linspace(-1., 1., 200)[np.newaxis, :]
 
     # inverse temperature in the initial condition given below
-    beta = 100
+    beta = 300
 
     # The equilibrium stationary state corresponding to the classical thermal
     # state for a harmonic oscillator with the inverse temperature beta
@@ -372,10 +502,17 @@ if __name__ == '__main__':
         theta="arctan2(p, q)"
     )
 
-    exact_rho = evaluate("exp(-0.5 * beta * (p ** 2 + q ** 2))")
+    # exact_rho = evaluate("exp(-0.5 * beta * (p ** 2 + q ** 2))")
 
-    prop = CHybridProp(n_basis_vect=150).set_upsilon(func_upsilon2 = Upsilon)
-    # prop = CHybridProp(n_basis_vect=150).set_upsilon(Upsilon)
+    prop = CHybridProp(
+        n_basis_vect=80,
+        h="0.5 * (p ** 2 + q ** 2)",
+        diff_p_h="p",
+        diff_q_h="q",
+    )
+
+    # prop.set_upsilon(func_upsilon2 = Upsilon)
+    prop.set_upsilon(Upsilon)
 
     img_param = dict(
         extent=[q.min(), q.max(), p.min(), p.max()],
@@ -384,7 +521,10 @@ if __name__ == '__main__':
         norm=WignerSymLogNorm(linthresh=1e-10)
     )
 
-    rho = prop.get_classical_density(q, p)
+    rho = prop.get_classical_density(q, p).copy()
+
+    Y_before = prop._flatten_upsilon.copy()
+
 
     plt.subplot(121)
     plt.title("Fitted function")
@@ -394,14 +534,20 @@ if __name__ == '__main__':
     plt.ylabel("$p$ (a.u.)")
     plt.colorbar()
 
-    print(np.sum(rho < 0))
-
     plt.subplot(122)
     plt.title("Error")
 
-    plt.imshow(np.abs(exact_rho / exact_rho.max() - rho / rho.max()), **img_param)
+    # prop.propagate(40)
+    prop.apply_liouvillian(1)
+    rho_ = prop.get_classical_density(q, p).copy()
+
+    print(np.abs(rho_ - rho ).max())
+
+    plt.imshow(rho_, **img_param)
     plt.xlabel("$q$ (a.u.)")
     plt.ylabel("$p$ (a.u.)")
     plt.colorbar()
+
+    Y_after = prop._flatten_upsilon.copy()
 
     plt.show()
