@@ -2,6 +2,7 @@ import numpy as np
 from numexpr import evaluate
 from scipy.fftpack import dctn
 from scipy.linalg import expm
+from scipy.sparse import csc_matrix, hstack, bmat
 
 ########################################################################################################################
 #
@@ -156,7 +157,9 @@ class CHybridProp(object):
                     "-1.j * diff_p_h * diff_Tq * Tp + 1.j * (diff_q_h + diff_q_f3) * Tq * diff_Tp"
                     "-0.5 * (q * diff_q_h + p * diff_p_h - 2. * h + (q * diff_q_f3 - 2. * f3)) * Tq * Tp",
                 )
-                L11.append(self._get_coeffs(l11).reshape(-1))
+                L11.append(
+                    csc_matrix(self._get_coeffs(l11).reshape(-1, 1))
+                )
 
                 ########################################################################################################
                 #
@@ -168,7 +171,9 @@ class CHybridProp(object):
                     "1j * (diff_q_f1 - 1j * diff_q_f2) * Tq * diff_Tp"
                     "-0.5 * (q * diff_q_f1 - 2. * f1 - 1j * (q * diff_q_f2 - 2. * f2)) * Tq * Tp"
                 )
-                L12.append(self._get_coeffs(l12).reshape(-1))
+                L12.append(
+                    csc_matrix(self._get_coeffs(l12).reshape(-1, 1))
+                )
 
                 ########################################################################################################
                 #
@@ -180,7 +185,9 @@ class CHybridProp(object):
                     "1j * (diff_q_f1 + 1j * diff_q_f2) * Tq * diff_Tp"
                     "-0.5 * (q * diff_q_f1 - 2. * f1 + 1j * (q * diff_q_f2 - 2. * f2)) * Tq * Tp"
                 )
-                L21.append(self._get_coeffs(l21).reshape(-1))
+                L21.append(
+                    csc_matrix(self._get_coeffs(l21).reshape(-1, 1))
+                )
 
                 ########################################################################################################
                 #
@@ -192,16 +199,18 @@ class CHybridProp(object):
                     "-1.j * diff_p_h * diff_Tq * Tp + 1.j * (diff_q_h - diff_q_f3) * Tq * diff_Tp"
                     "-0.5 * (q * diff_q_h + p * diff_p_h - 2. * h - (q * diff_q_f3 - 2. * f3)) * Tq * Tp",
                 )
-                L22.append(self._get_coeffs(l22).reshape(-1))
+                L22.append(
+                    csc_matrix(self._get_coeffs(l22).reshape(-1, 1))
+                )
 
         # assemble the matrix of the Liouvillian from the blocks
         # Note that transposition is crucial
-        L11 = np.array(L11).T
-        L12 = np.array(L12).T
-        L22 = np.array(L22).T
-        L21 = np.array(L21).T
+        L11 = hstack(L11)
+        L12 = hstack(L12)
+        L22 = hstack(L22)
+        L21 = hstack(L21)
 
-        self.liouvillian = np.block(
+        self.liouvillian = bmat(
             [[L11, L12], [L21, L22]]
         )
 
@@ -429,26 +438,13 @@ class CHybridProp(object):
 
         return self.classical_rho
 
-    def propagate(self, nsteps: int = 1) -> object:
+    def propagate(self) -> object:
         """
         Propagate the hybrid wavefunction by the time dt * nsteps.
         :param nsteps: number of time steps taken
         :return: self
         """
-        upsilon_previous = self._flatten_upsilon
-        upsilon_next = self._flatten_upsilon_copy
-
-        for _ in range(nsteps):
-            self.propagator.dot(upsilon_previous, out=upsilon_next)
-            upsilon_previous, upsilon_next = upsilon_next, upsilon_previous
-
-        # note that we use upsilon_previous instead of upsilon_next because of the performed permutation
-        upsilon_next = upsilon_previous
-
-        # make sure that self._flatten_upsilon contains the wavefunction at the final time
-        if upsilon_next is not self._flatten_upsilon:
-            np.copyto(self._flatten_upsilon, upsilon_next)
-
+        self._flatten_upsilon += self.dt * self.liouvillian.dot(self._flatten_upsilon)
         return self
 
     def apply_liouvillian(self, nsteps: int = 1) -> object:
@@ -457,19 +453,8 @@ class CHybridProp(object):
         :param nsteps:
         :return: self
         """
-        upsilon_previous = self._flatten_upsilon
-        upsilon_next = self._flatten_upsilon_copy
-
         for _ in range(nsteps):
-            self.liouvillian.dot(upsilon_previous, out=upsilon_next)
-            upsilon_previous, upsilon_next = upsilon_next, upsilon_previous
-
-        # note that we use upsilon_previous instead of upsilon_next because of the performed permutation
-        upsilon_next = upsilon_previous
-
-        # make sure that self._flatten_upsilon contains the wavefunction at the final time
-        if upsilon_next is not self._flatten_upsilon:
-            np.copyto(self._flatten_upsilon, upsilon_next)
+            self._flatten_upsilon[:] = self.liouvillian.dot(self._flatten_upsilon)
 
         return self
 
@@ -502,10 +487,26 @@ if __name__ == '__main__':
         theta="arctan2(p, q)"
     )
 
-    # exact_rho = evaluate("exp(-0.5 * beta * (p ** 2 + q ** 2))")
+    # import pickle
+    #
+    # try:
+    #     with open('propagator.pickle', 'rb') as f:
+    #         prop = pickle.load(f)
+    #     print("The instance of CHybridProp is un-pickled")
+    #
+        # except IOError:
+    #     prop = CHybridProp(
+    #         n_basis_vect=200,
+    #         h="0.5 * (p ** 2 + q ** 2)",
+    #         diff_p_h="p",
+    #         diff_q_h="q",
+    #     )
+    #
+    #     with open('propagator.pickle', 'wb') as f:
+    #         pickle.dump(prop, f)
 
     prop = CHybridProp(
-        n_basis_vect=80,
+        n_basis_vect=200,
         h="0.5 * (p ** 2 + q ** 2)",
         diff_p_h="p",
         diff_q_h="q",
@@ -525,7 +526,6 @@ if __name__ == '__main__':
 
     Y_before = prop._flatten_upsilon.copy()
 
-
     plt.subplot(121)
     plt.title("Fitted function")
 
@@ -538,7 +538,11 @@ if __name__ == '__main__':
     plt.title("Error")
 
     # prop.propagate(40)
-    prop.apply_liouvillian(1)
+    # prop.apply_liouvillian(4)
+
+    for _ in range(10):
+        prop.propagate()
+
     rho_ = prop.get_classical_density(q, p).copy()
 
     print(np.abs(rho_ - rho ).max())
