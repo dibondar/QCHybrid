@@ -444,7 +444,14 @@ class CHybridProp(object):
         :param nsteps: number of time steps taken
         :return: self
         """
-        self._flatten_upsilon += self.dt * self.liouvillian.dot(self._flatten_upsilon)
+        x = self._flatten_upsilon
+
+        for n in range(1, 3):
+            x = self.liouvillian.dot(x)
+            x *= -1j * self.dt / n
+
+            self._flatten_upsilon += x
+
         return self
 
     def apply_liouvillian(self, nsteps: int = 1) -> object:
@@ -506,20 +513,21 @@ if __name__ == '__main__':
     #         pickle.dump(prop, f)
 
     prop = CHybridProp(
-        n_basis_vect=200,
+        n_basis_vect=100,
         h="0.5 * (p ** 2 + q ** 2)",
         diff_p_h="p",
         diff_q_h="q",
     )
 
     # prop.set_upsilon(func_upsilon2 = Upsilon)
-    prop.set_upsilon(Upsilon)
+    prop.set_upsilon("exp(-100. * (p ** 2 + q ** 2))")
 
     img_param = dict(
         extent=[q.min(), q.max(), p.min(), p.max()],
         origin='lower',
         cmap='seismic',
-        norm=WignerSymLogNorm(linthresh=1e-10)
+        # norm=WignerSymLogNorm(linthresh=1e-10)
+        norm=WignerNormalize()
     )
 
     rho = prop.get_classical_density(q, p).copy()
@@ -540,7 +548,7 @@ if __name__ == '__main__':
     # prop.propagate(40)
     # prop.apply_liouvillian(4)
 
-    for _ in range(10):
+    for _ in range(20):
         prop.propagate()
 
     rho_ = prop.get_classical_density(q, p).copy()
