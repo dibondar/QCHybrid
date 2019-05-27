@@ -370,10 +370,11 @@ class CAnalyticQCHybrid(object):
     def __init__(self, *, p, q, omega, alpha, beta):
         """
         Constructor
-        :param p:
-        :param q:
+        :param p: momentum
+        :param q: coordinate
         :param beta: inverse temperature
-        :return: None
+        :param omega: frequency
+        :param alpha: classical-quantum constant
         """
         # save parameters
         self.p = p
