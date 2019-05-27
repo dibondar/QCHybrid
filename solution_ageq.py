@@ -403,7 +403,7 @@ if __name__ == '__main__':
             ax = fig.add_subplot(222)
 
             ax.set_title('Quantum purity')
-            self.quantum_purity_plot, = ax.plot([0., 40], [1, 0.5])
+            self.quantum_purity_plot, = ax.plot([0., 1000000], [1, 0.5])
             ax.set_xlabel('time (a.u.)')
             ax.set_ylabel("quantum purity")
 
@@ -433,7 +433,7 @@ if __name__ == '__main__':
             :return: image objects
             """
             # convert the frame number to time
-            t = 0.05 * frame_num
+            t = 4000. * frame_num
 
             # calculate the hybrid density matrix
             self.hybrid.calculate_D(t)
@@ -473,7 +473,7 @@ if __name__ == '__main__':
     fig.set_size_inches(10, 10)
     visualizer = CVisualizeAnim(fig)
     animation = FuncAnimation(
-        fig, visualizer, frames=np.arange(400), repeat=True, # blit=True
+        fig, visualizer, frames=np.arange(1000), repeat=True, # blit=True
     )
     plt.show()
 

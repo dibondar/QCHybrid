@@ -17,8 +17,8 @@ hybrid = CAnalyticQCHybrid(p, q, kT=1e-5)
 agk = SolAGKEq(p, q, kT=1e-5)
 """
 # Initialize the hybrid solution
-p = np.linspace(-0.1, 0.1, 500)[:, np.newaxis]
-q = np.linspace(-0.1, 0.1, 500)[np.newaxis, :]
+p = np.linspace(-0.1, 0.1, 1000)[:, np.newaxis]
+q = np.linspace(-0.1, 0.1, 1000)[np.newaxis, :]
 
 params = {
     "p":p,
@@ -34,7 +34,7 @@ agk = SolAGKEq(**params)
 # calculate quantum purity
 #time = np.linspace(0., 14, 1500)
 #time = np.linspace(0., 14, 150)
-time = np.linspace(0., 14, 30)
+time = np.linspace(0., 30000, 30)
 
 pauli_matrices = [
     np.array([[0., 1.], [1., 0.]]),
@@ -47,6 +47,9 @@ quantum_state_points = []
 
 agk_quantum_purity = []
 agk_quantum_state_points = []
+
+agk_rho0 = agk.calculate_D(0).quantum_density()
+
 
 for t in time:
     ####################################################################################################################
@@ -79,7 +82,13 @@ for t in time:
     )
 
     if not np.allclose(hybrid.classical_density(), agk.classical_density()):
-        print("There is difference between models")
+        print("There is difference between classical distributions")
+
+    if not np.allclose(agk_rho0, rho):
+        print("I am wrong!!!")
+        print("t = ", t)
+        print(np.abs(agk_rho0 - rho).max())
+        print("\n")
 
 quantum_purity = np.array(quantum_purity)
 agk_quantum_purity = np.array(agk_quantum_purity)
