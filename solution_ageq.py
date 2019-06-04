@@ -225,6 +225,10 @@ class SolAGKEq(object):
 
         self.omega = omega
         self.beta = beta
+        self.alpha = alpha
+
+        # save the Hamiltonian
+        self.H0 = 0.5 * (self.p ** 2 + self.omega ** 2 * self.q ** 2)
 
     def D11(self, t):
         """
@@ -317,6 +321,23 @@ class SolAGKEq(object):
 
         return rho.dot(rho).trace().real
 
+    def energy(self):
+        """
+        Calculate the total energy, which is a conserved quantity.
+        :return: float
+        """
+        return np.sum(
+            self.H0 * (self._D11 + self._D22) + self.alpha * self.q ** 2 * self._D12.real
+        ).real * self.dqdp
+
+    def average_sigma_1(self):
+        """
+        To check weather the Bloch vector stays in the yz plane
+        <sigma_1>
+        :return: float
+        """
+        return 2 * self._D12.real.sum() * self.dqdp
+
 
 ########################################################################################################
 #
@@ -378,6 +399,11 @@ if __name__ == '__main__':
                 norm=WignerSymLogNorm(linthresh=1e-10, vmin=-0.01, vmax=0.1)
             )
 
+            # List to save the total hybrid energy for testing (it must be a conserved quantity)
+            self.total_energy = []
+
+            # List to save the x component of the Bloch vector
+            self.sigma_1 = []
 
             #################################################################
             #
@@ -438,6 +464,12 @@ if __name__ == '__main__':
             # calculate the hybrid density matrix
             self.hybrid.calculate_D(t)
 
+            # Save total energy
+            self.total_energy.append(self.hybrid.energy())
+
+            # Save <sigma_1>
+            self.sigma_1.append(self.hybrid.average_sigma_1())
+
             # plot the classical density
             c_rho = self.hybrid.classical_density()
 
@@ -477,5 +509,13 @@ if __name__ == '__main__':
     )
     plt.show()
 
+    plt.subplot(211)
+    plt.plot(visualizer.time, visualizer.total_energy)
+    plt.xlabel('$t$ (a.u.)')
+    plt.ylabel('Total energy (must be conserved)')
 
-
+    plt.subplot(212)
+    plt.plot(visualizer.time, visualizer.sigma_1)
+    plt.xlabel('$t$ (a.u.)')
+    plt.ylabel('$\\langle \sigma_1 \\rangle$ (must be small)')
+    plt.show()
