@@ -509,6 +509,8 @@ if __name__ == '__main__':
     )
     plt.show()
 
+    ####################################################################################################################
+
     plt.subplot(211)
     plt.plot(visualizer.time, visualizer.total_energy)
     plt.xlabel('$t$ (a.u.)')
@@ -518,4 +520,5 @@ if __name__ == '__main__':
     plt.plot(visualizer.time, visualizer.sigma_1)
     plt.xlabel('$t$ (a.u.)')
     plt.ylabel('$\\langle \sigma_1 \\rangle$ (must be small)')
+
     plt.show()
