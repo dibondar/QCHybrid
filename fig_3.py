@@ -72,6 +72,7 @@ for t in time:
         [sigma.dot(rho).trace().real for sigma in pauli_matrices]
     )
 
+
     # # check eigenvalues of D
     # D = np.vstack(
     #     (
