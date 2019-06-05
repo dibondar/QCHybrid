@@ -531,8 +531,8 @@ if __name__ == '__main__':
             #     norm=WignerSymLogNorm(linthresh=1e-10, vmin=-0.01, vmax=0.1)
             # )
 
-            p = np.linspace(-20, 20, 500)[:, np.newaxis]
-            q = np.linspace(-20, 20, 500)[np.newaxis, :]
+            p = np.linspace(-25, 25, 600)[:, np.newaxis]
+            q = np.linspace(-25, 25, 600)[np.newaxis, :]
 
             self.hybrid = CAnalyticQCHybrid(p=p, q=q, omega=1., beta=2., alpha=0.95)
 
@@ -551,9 +551,9 @@ if __name__ == '__main__':
             #################################################################
 
             self.pauli = SplitOpPauliLike1D(
-                X_amplitude=1.5 * q.max(),
-                X_gridDIM=2 * 1024,
-                dt=0.0002,
+                X_amplitude=2. * q.max(),
+                X_gridDIM=512,
+                dt=0.0001,
                 K0="0.5 * P ** 2",
                 V0="0.5 * X ** 2",
                 V1="0.5 * 0.95 * X ** 2",
@@ -676,7 +676,7 @@ if __name__ == '__main__':
             self.bloch.make_sphere()
 
             #
-            self.pauli.propagate(200)
+            self.pauli.propagate(1000)
 
             return self.img_classical_density, self.quantum_purity_plot, self.pauli_quantum_purity_plot,\
                    self.bloch, self.pauli_coordinate_distribution

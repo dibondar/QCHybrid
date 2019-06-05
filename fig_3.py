@@ -72,6 +72,17 @@ for t in time:
         [sigma.dot(rho).trace().real for sigma in pauli_matrices]
     )
 
+    # # check eigenvalues of D
+    # D = np.vstack(
+    #     (
+    #         np.hstack((hybrid._D11, hybrid._D12)),
+    #         np.hstack((hybrid._D12.conjugate(), hybrid._D22))
+    #     )
+    # )
+    # eigenvals_D = np.linalg.eigvalsh(D)
+    # if not np.allclose(eigenvals_D[eigenvals_D < 0], 0):
+    #     print("t = {:f}     D is not positively definite ({:f})".format(t, eigenvals_D.min()))
+
     ####################################################################################################################
     #
     #   Pauli exact solution
@@ -87,7 +98,7 @@ for t in time:
     )
 
     # Classical densities must agree
-    assert np.allclose(pauli.classical_density(t), hybrid.classical_density())
+    assert np.allclose(pauli.classical_density(t), hybrid.classical_density()), "Classical densities must agree"
 
 agk_quantum_purity = np.array(agk_quantum_purity)
 hybrid_quantum_purity = np.array(hybrid_quantum_purity)
