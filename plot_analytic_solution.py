@@ -551,9 +551,9 @@ if __name__ == '__main__':
             #################################################################
 
             self.pauli = SplitOpPauliLike1D(
-                X_amplitude=2 * q.max(),
+                X_amplitude=1.5 * q.max(),
                 X_gridDIM=2 * 1024,
-                dt=0.0005,
+                dt=0.0002,
                 K0="0.5 * P ** 2",
                 V0="0.5 * X ** 2",
                 V1="0.5 * 0.95 * X ** 2",
@@ -585,12 +585,16 @@ if __name__ == '__main__':
             ax = fig.add_subplot(222)
 
             ax.set_title('Quantum purity')
-            self.quantum_purity_plot, = ax.plot([0., 40], [1, 0.5])
+            self.quantum_purity_plot, = ax.plot([0., 40], [1, 0.5], label='hybrid')
+            self.pauli_quantum_purity_plot, = ax.plot([0., 40], [1, 0.5], label='Pauli')
+
             ax.set_xlabel('time (a.u.)')
             ax.set_ylabel("quantum purity")
+            ax.legend()
 
             self.time = []
             self.qpurity = []
+            self.pauli_qpurity = []
 
             ax = fig.add_subplot(223)
 
@@ -607,7 +611,7 @@ if __name__ == '__main__':
             ax.set_xlabel('$q$ (a.u.)')
             ax.set_ylabel('Probability density')
 
-            ax = fig.add_subplot(224, projection='3d', azim=0,elev=0)
+            ax = fig.add_subplot(224, projection='3d', azim=90,elev=0)
 
             self.bloch = Bloch(axes=ax)
             self.bloch.make_sphere()
@@ -619,8 +623,8 @@ if __name__ == '__main__':
             :return: image objects
             """
             # convert the frame number to time
-            t = 0.05 * frame_num
-            # t= self.pauli.t
+            #t = 0.05 * frame_num
+            t= self.pauli.t
 
             # calculate the hybrid density matrix
             self.hybrid.calculate_D(t)
@@ -647,17 +651,35 @@ if __name__ == '__main__':
 
             self.quantum_purity_plot.set_data(self.time, self.qpurity)
 
+            # Get the Pauli density matrix
+            rho12 =  np.sum(self.pauli.psi1 * self.pauli.psi2.conjugate())
+
+            rho_pauli = np.array(
+                [[np.sum(np.abs(self.pauli.psi1) ** 2), rho12],
+                [rho12.conjugate(), np.sum(np.abs(self.pauli.psi2) ** 2)]]
+            )
+            rho_pauli *= self.pauli.dX
+
+            # plot Pauli purity
+            self.pauli_qpurity.append(
+                rho_pauli.dot(rho_pauli).trace().real
+            )
+
+            self.pauli_quantum_purity_plot.set_data(self.time, self.pauli_qpurity)
+
             # plot Bloch vector
             self.bloch.clear()
             self.bloch.add_states(
-                Qobj(self.hybrid.quantum_density())
+                [Qobj(self.hybrid.quantum_density()),
+                Qobj(rho_pauli)]
             )
             self.bloch.make_sphere()
 
             #
-            # self.pauli.propagate(100)
+            self.pauli.propagate(200)
 
-            return self.img_classical_density, self.quantum_purity_plot, self.bloch, self.pauli_coordinate_distribution
+            return self.img_classical_density, self.quantum_purity_plot, self.pauli_quantum_purity_plot,\
+                   self.bloch, self.pauli_coordinate_distribution
 
 
     fig = plt.gcf()
