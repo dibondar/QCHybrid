@@ -531,10 +531,10 @@ if __name__ == '__main__':
             #     norm=WignerSymLogNorm(linthresh=1e-10, vmin=-0.01, vmax=0.1)
             # )
 
-            p = np.linspace(-0.1, 0.1, 500)[:, np.newaxis]
-            q = np.linspace(-0.1, 0.1, 500)[np.newaxis, :]
+            p = np.linspace(-20, 20, 500)[:, np.newaxis]
+            q = np.linspace(-20, 20, 500)[np.newaxis, :]
 
-            self.hybrid = CAnalyticQCHybrid(p=p, q=q, omega=1., beta=1e5, alpha=0.95)
+            self.hybrid = CAnalyticQCHybrid(p=p, q=q, omega=1., beta=2., alpha=0.95)
 
             img_params = dict(
                 extent=[q.min(), q.max(), p.min(), p.max()],

@@ -19,6 +19,66 @@ params = {
     "alpha":0.95,
 }
 
+pauli_matrices = [
+    np.array([[0., 1.], [1., 0.]]),
+    np.array([[0., -1.j], [1.j, 0.]]),
+    np.array([[1., 0], [0., -1]])
+]
+
+
+def plot_bloch_trajectory(quantum_state_points, **kwargs):
+    """
+    Plot the projection of the Bloch trajectory
+    :param quantum_state_points: array of Bloch vectors (2D numpy.array)
+    :param kwargs: plotting options
+    :return: None
+    """
+    colouring = np.linspace(0, 1, len(quantum_state_points)- 1)
+
+    # plot the trajectory bloch vector traces
+    start_point = quantum_state_points[0]
+
+    for end_point, color_code in zip(quantum_state_points[1:], colouring):
+        plt.plot(
+            (start_point[1], end_point[1]),
+            (start_point[2], end_point[2]),
+            color=plt.cm.viridis(color_code),
+            **kwargs,
+        )
+        start_point = end_point
+
+    # display the arch of Bloch sphere
+    plt.gca().add_patch(
+        patches.Arc((0., 0.), 2., 2., theta1=0., theta2=180., fill=False, linestyle='--')
+    )
+
+    plt.xlabel('y axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_2 \hat{\\rho}(t) \\right)$')
+    plt.ylabel('z axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_3 \hat{\\rho}(t) \\right)$')
+
+
+def plot_purity_plot(time, quantum_purity, **kwargs):
+    """
+    Plot the purity plot
+    :param time: numpy.array
+    :param quantum_purity: numpy.array of purities
+    :param kwargs: additional plotting options
+    :return: None
+    """
+    colouring = np.linspace(0, 1, len(quantum_purity) - 1)
+
+    start_purity = quantum_purity[0]
+    start_time = time[0]
+
+    for end_time, end_purity, color_code in zip(time[1:], quantum_purity[1:], colouring):
+        plt.plot(
+            (start_time, end_time),
+            (start_purity, end_purity),
+            color=plt.cm.viridis(color_code),
+            **kwargs,
+        )
+        start_purity = end_purity
+        start_time = end_time
+
 
 if __name__=='__main__':
 
@@ -27,12 +87,6 @@ if __name__=='__main__':
     # calculate quantum purity
     #time = np.linspace(0., 14, 1500)
     time = np.linspace(0., 14, 150)
-
-    pauli_matrices = [
-        np.array([[0., 1.], [1., 0.]]),
-        np.array([[0., -1.j], [1.j, 0.]]),
-        np.array([[1., 0], [0., -1]])
-    ]
 
     quantum_purity = []
     quantum_state_points = []
@@ -192,34 +246,13 @@ if __name__=='__main__':
     #
     ####################################################################################################################
 
-    colouring = np.linspace(0, 1, len(quantum_state_points)- 1)
-
-    # plot the trajectory bloch vector traces
-    start_point = quantum_state_points[0]
-
-    for end_point, color_code in zip(quantum_state_points[1:], colouring):
-        plt.plot(
-            (start_point[1], end_point[1]),
-            (start_point[2], end_point[2]),
-            color=plt.cm.viridis(color_code),
-        )
-        start_point = end_point
+    plot_bloch_trajectory(quantum_state_points)
 
     # add points where the classical densities where plotted
     plt.plot(
         *np.array(list(quantum_rho.values())).T[1:],
         'ok', markersize=5,
     )
-
-    ####################################################################################################################
-
-    # display the arch of Bloch sphere
-    plt.gca().add_patch(
-        patches.Arc((0., 0.), 2., 2., theta1=0., theta2=180., fill=False, linestyle='--')
-    )
-
-    plt.xlabel('y axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_2 \hat{\\rho}(t) \\right)$')
-    plt.ylabel('z axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_3 \hat{\\rho}(t) \\right)$')
 
     plt.show()
 
@@ -229,18 +262,7 @@ if __name__=='__main__':
     #
     ####################################################################################################################
 
-    start_purity = quantum_purity[0]
-    start_time = time[0]
-
-    for end_time, end_purity, color_code in zip(time[1:], quantum_purity[1:], colouring):
-        plt.plot(
-            (start_time, end_time),
-            (start_purity, end_purity),
-            color=plt.cm.viridis(color_code),
-            # linewidth=1.2
-        )
-        start_purity = end_purity
-        start_time = end_time
+    plot_purity_plot(time, quantum_purity)
 
     # put points where the classical density is plotted
     plt.plot(*zip(*purity_time_slices), 'ok', markersize=5)

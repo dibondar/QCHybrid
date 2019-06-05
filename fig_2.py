@@ -4,7 +4,7 @@ Plotting the analytical solutions for the paper (see Fig. 2) using the Aleksandr
 from solution_ageq import SolAGKEq
 
 # take the same system as in Fig. 1
-from fig_1 import params
+from fig_1 import params, pauli_matrices, plot_bloch_trajectory, plot_purity_plot
 
 from wigner_normalize import WignerNormalize, WignerSymLogNorm
 import numpy as np
@@ -15,12 +15,6 @@ from matplotlib import patches
 agk = SolAGKEq(**params)
 
 time = np.linspace(0., 1000000, 200)
-
-pauli_matrices = [
-    np.array([[0., 1.], [1., 0.]]),
-    np.array([[0., -1.j], [1.j, 0.]]),
-    np.array([[1., 0], [0., -1]])
-]
 
 agk_quantum_purity = []
 agk_quantum_state_points = []
@@ -53,29 +47,7 @@ plt.subplot(211)
 
 plt.text(-0.05, 0.5, '(A)', {'size':16})
 
-colouring = np.linspace(0, 1, len(agk_quantum_state_points)- 1)
-
-# plot the trajectory bloch vector traces
-start_point = agk_quantum_state_points[0]
-
-for end_point, color_code in zip(agk_quantum_state_points[1:], colouring):
-    plt.plot(
-        (start_point[1], end_point[1]),
-        (start_point[2], end_point[2]),
-        color=plt.cm.viridis(color_code),
-        linewidth=2.
-    )
-    start_point = end_point
-
-####################################################################################################################
-
-# display the arch of Bloch sphere
-plt.gca().add_patch(
-    patches.Arc((0., 0.), 2., 2., theta1=0., theta2=180., fill=False, linestyle='--')
-)
-
-plt.xlabel('y axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_2 \hat{\\rho}(t) \\right)$')
-plt.ylabel('z axis of Bloch sphere, ${\\rm Tr}\, \left(\widehat{\sigma}_3 \hat{\\rho}(t) \\right)$')
+plot_bloch_trajectory(agk_quantum_state_points, linewidth=2.)
 
 ####################################################################################################################
 #
@@ -93,22 +65,7 @@ plt.text(9e5, 0.75, '(B)', {'size':16})
 #
 ####################################################################################################################
 
-start_purity = agk_quantum_purity[0]
-start_time = time[0]
-
-for end_time, end_purity, color_code in zip(time[1:], agk_quantum_purity[1:], colouring):
-    plt.plot(
-        (start_time, end_time),
-        (start_purity, end_purity),
-        color=plt.cm.viridis(color_code),
-        linewidth=2.
-    )
-    start_purity = end_purity
-    start_time = end_time
-
-####################################################################################################################
-
-# plt.xlim((time.min(), time.max()))
+plot_purity_plot(time, agk_quantum_purity, linewidth=2.)
 
 ####################################################################################################################
 #
